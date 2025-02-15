@@ -62,6 +62,36 @@ int parseImmediate(const std::string& imm) {
     return stoi(imm);
 }
 
+// Function to encode R-format instruction
+uint32_t encodeRFormat(const Instruction& instr, int rd, int rs1, int rs2) {
+    return (instr.funct7 << 25) | (rs2 << 20) | (rs1 << 15) | (instr.funct3 << 12) | (rd << 7) | instr.opcode;
+}
+
+// Function to encode I-format instruction
+uint32_t encodeIFormat(const Instruction& instr, int rd, int rs1, int imm) {
+    return ((imm & 0xFFF) << 20) | (rs1 << 15) | (instr.funct3 << 12) | (rd << 7) | instr.opcode;
+}
+
+// Function to encode S-format instruction
+uint32_t encodeSFormat(const Instruction& instr, int rs1, int rs2, int imm) {
+    return ((imm & 0xFE0) << 20) | (rs2 << 20) | (rs1 << 15) | (instr.funct3 << 12) | ((imm & 0x1F) << 7) | instr.opcode;
+}
+
+// Function to encode SB-format instruction
+uint32_t encodeSBFormat(const Instruction& instr, int rs1, int rs2, int imm) {
+    return (((imm & 0x1000) >> 12) << 31) | (((imm & 0x7E0) >> 5) << 25) | (rs2 << 20) | (rs1 << 15) | (instr.funct3 << 12) | (((imm & 0x1E) >> 1) << 8) | (((imm & 0x800) >> 11) << 7) | instr.opcode;
+}
+
+// Function to encode U-format instruction
+uint32_t encodeUFormat(const Instruction& instr, int rd, int imm) {
+    return (imm << 12) | (rd << 7) | instr.opcode;
+}
+
+// Function to encode UJ-format instruction
+uint32_t encodeUJFormat(const Instruction& instr, int rd, int imm) {
+    return (((imm & 0x100000) >> 20) << 31) | (((imm & 0xFF000) >> 12) << 12) | (((imm & 0x800) >> 11) << 20) | (((imm & 0x7FE) >> 1) << 21) | (rd << 7) | instr.opcode;
+}
+
 int main(){
     return 0;
 }

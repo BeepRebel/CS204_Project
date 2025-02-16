@@ -92,6 +92,96 @@ uint32_t encodeUJFormat(const Instruction& instr, int rd, int imm) {
     return (((imm & 0x100000) >> 20) << 31) | (((imm & 0xFF000) >> 12) << 12) | (((imm & 0x800) >> 11) << 20) | (((imm & 0x7FE) >> 1) << 21) | (rd << 7) | instr.opcode;
 }
 
-int main(){
+int main() {
+    ifstream input("input.asm");
+    ofstream output("output.mc");
+    string line;
+    uint32_t address = 0;
+
+    while (getline(input, line)) {
+        istringstream iss(line);
+        string opcode;
+        iss >> opcode;
+
+        if (instructions.find(opcode) != instructions.end()) {
+            const Instruction& instr = instructions[opcode];
+            uint32_t machineCode = 0;
+            string operands;
+            getline(iss, operands);
+
+            vector<string> tokens;
+            istringstream tokenStream(operands);
+            string token;
+            while (getline(tokenStream, token, ',')) {
+                tokens.push_back(token);
+            }
+
+            switch (instr.format) {
+                case Format::R: {
+                    int rd = parseRegister(tokens[0]);
+                    int rs1 = parseRegister(tokens[1]);
+                    int rs2 = parseRegister(tokens[2]);
+                    machineCode = encodeRFormat(instr, rd, rs1, rs2);
+                    break;
+                }
+                case Format::I: {
+                    int rd = parseRegister(tokens[0]);
+                    int rs1 = parseRegister(tokens[1]);
+                    int imm = parseImmediate(tokens[2]);
+                    machineCode = encodeIFormat(instr, rd, rs1, imm);
+                    break;
+                }
+                case Format::S: {
+                    int rs2 = parseRegister(tokens[0]);
+                    int imm = parseImmediate(tokens[1]);
+                    int rs1 = parseRegister(tokens[2]);
+                    machineCode = encodeSFormat(instr, rs1, rs2, imm);
+                    break;
+                }
+                case Format::SB: {
+                    int rs1 = parseRegister(tokens[0]);
+                    int rs2 = parseRegister(tokens[1]);
+                    int imm = parseImmediate(tokens[2]);
+                    machineCode = encodeSBFormat(instr, rs1, rs2, imm);
+                    break;
+                }
+                case Format::U: {
+                    int rd = parseRegister(tokens[0]);
+                    int imm = parseImmediate(tokens[1]);
+                    machineCode = encodeUFormat(instr, rd, imm);
+                    break;
+                }
+                case Format::UJ: {
+                    int rd = parseRegister(tokens[0]);
+                    int imm = parseImmediate(tokens[1]);
+                    machineCode = encodeUJFormat(instr, rd, imm);
+                    break;
+                }
+            }
+
+            output << "0x" << hex << std::setw(8) << setfill('0') << address << " 0x" 
+                   << hex << std::setw(8) << setfill('0') << machineCode << " , " 
+                   << line << " # " << bitset<7>(instr.opcode) << "-" 
+                   << bitset<3>(instr.funct3) << "-" << bitset<7>(instr.funct7) << "-";
+
+            for (const auto& token : tokens) {
+                if (token[0] == 'x') {
+                    output << std::bitset<5>(parseRegister(token)) << "-";
+                } else {
+                    output << "NULL-";
+                }
+            }
+
+            output << "\n";
+            address += 4;
+        }
+    }
+
+    output << "0x" << hex << std::setw(8) << setfill('0') << address 
+           << " <your termination code to signify end of text segment>\n";
+
+    input.close();
+    output.close();
+
     return 0;
 }

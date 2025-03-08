@@ -1,4 +1,3 @@
-// RISC-V Assembler
 #include <bits/stdc++.h>
 using namespace std;
 
@@ -6,41 +5,60 @@ class RISCVAssembler
 {
 private:
     // Symbol Table: Stores label names and their corresponding memory addresses
-    // This is crucial for resolving labels in branch and jump instructions
     unordered_map<string, uint32_t> symbolTable;
+    
+    // Track which segment each label belongs to
+    unordered_map<string, string> labelSegment;
 
-    // Memory Segment Definitions (Following RISC-V memory layout)
-    // These define the starting addresses for different memory segments
+    // Directive sizes map: maps directives to their byte sizes
+    unordered_map<string, int> directivesSizes;
+
+    // Memory Segment Definitions
     uint32_t codeSegmentStart = 0x00000000; // Start of executable code
-    uint32_t dataSegmentStart = 0x10000000; // Start of data segment
+    uint32_t dataSegmentStart = 0x10000000; // Start of data segment (0x10000000 = 268435456)
     uint32_t heapStart = 0x10008000;        // Heap memory start
     uint32_t stackStart = 0x7FFFFFD0;       // Stack memory start
 
     // Stores the generated instructions with their addresses
     vector<pair<string, string>> instructions;
 
-    // Will store data segment information (for future implementation)
+    // Stores data segment information
     vector<pair<string, string>> dataSegment;
 
+    // Store raw data lines for processing
+    vector<string> dataLines;
+
+    // Store output lines (combined code and data)
+    vector<string> outputLines;
+
     // Converts register name (e.g., "x1") to register number
-    // Throws an error for invalid register names
     uint32_t parseRegister(const string &reg)
     {
         if (reg[0] != 'x')
-            throw runtime_error("Invalid register format");
-        return stoi(reg.substr(1)); // Extract number after 'x'
+            throw runtime_error("Invalid register format: " + reg);
+        
+        int regNum = stoi(reg.substr(1)); // Extract number after 'x'
+        
+        // Check if register number is valid (0-31 for RISC-V)
+        if (regNum < 0 || regNum > 31)
+            throw runtime_error("Invalid register number: " + reg);
+            
+        return regNum;
     }
 
-    // Parses immediate values, handling:
-    // 1. Labeled addresses
-    // 2. Hexadecimal numbers
-    // 3. Decimal numbers
-    int32_t parseImmediate(const string &imm, uint32_t currentAddress = 0)
+    // Parses immediate values
+    int32_t parseImmediate(const string &imm, uint32_t currentAddress = 0, bool isPCRelative = false)
     {
         // Check if the immediate is a previously defined label
         if (symbolTable.find(imm) != symbolTable.end())
         {
-            return symbolTable[imm] - currentAddress;
+            int32_t targetAddress = symbolTable[imm];
+            // If PC-relative (for branch/jump instructions), calculate the offset
+            if (isPCRelative)
+            {
+                return targetAddress - currentAddress;
+            }
+            return targetAddress;
         }
 
         // Check for hexadecimal number
@@ -54,14 +72,9 @@ private:
     }
 
     // Encoding functions for different RISC-V instruction formats
-    // Each function takes instruction components and generates 32-bit machine code
-
-    // R-type instruction encoding (arithmetic and logic operations)
-    // Example instructions: add, sub, and, or, etc.
     uint32_t encodeRType(const string &opcode, uint32_t rd, uint32_t rs1,
                          uint32_t rs2, uint32_t funct3, uint32_t funct7)
     {
-        // Bit-level encoding of R-type instruction
         return (funct7 << 25)                // Func7 bits (top 7 bits)
                | (rs2 << 20)                 // Source register 2 (bits 20-24)
                | (rs1 << 15)                 // Source register 1 (bits 15-19)
@@ -70,32 +83,26 @@ private:
                | stoul(opcode, nullptr, 16); // Opcode (bottom 7 bits)
     }
 
-    // I-type instruction encoding (immediate and load instructions)
-    // Example instructions: addi, andi, lb, lw, etc.
     uint32_t encodeIType(const string &opcode, uint32_t rd, uint32_t rs1,
-                         uint32_t imm, uint32_t funct3)
+                         int32_t imm, uint32_t funct3)
     {
-        // Sign extend 12-bit immediate
+        // Ensure immediate is 12-bit and sign-extended properly
         int32_t signedImm = imm & 0xFFF;
-        if (signedImm & 0x800)
-            signedImm |= 0xFFFFF000;
-
-        return (signedImm << 20)             // Immediate value (bits 20-31)
+        
+        return ((signedImm & 0xFFF) << 20)   // Immediate value (bits 20-31)
                | (rs1 << 15)                 // Source register 1 (bits 15-19)
                | (funct3 << 12)              // Func3 bits (bits 12-14)
                | (rd << 7)                   // Destination register (bits 7-11)
                | stoul(opcode, nullptr, 16); // Opcode (bottom 7 bits)
     }
 
-    // S-type instruction encoding (store instructions)
-    // Example instructions: sw, sb, sh
     uint32_t encodeSType(const string &opcode, uint32_t rs1, uint32_t rs2,
-                         uint32_t imm, uint32_t funct3)
+                         int32_t imm, uint32_t funct3)
     {
         // Split 12-bit immediate into two parts for encoding
-        int32_t signedImm = imm & 0xFFF;
-        uint32_t imm11_5 = (signedImm & 0xFE0) >> 5; // Upper 7 bits
-        uint32_t imm4_0 = signedImm & 0x1F;          // Lower 5 bits
+        imm = imm & 0xFFF; // Ensure imm is 12-bit
+        uint32_t imm11_5 = (imm & 0xFE0) >> 5; // Upper 7 bits
+        uint32_t imm4_0 = imm & 0x1F;          // Lower 5 bits
 
         return (imm11_5 << 25)               // Immediate [11:5] (bits 25-31)
                | (rs2 << 20)                 // Source register 2 (bits 20-24)
@@ -105,15 +112,100 @@ private:
                | stoul(opcode, nullptr, 16); // Opcode (bottom 7 bits)
     }
 
-    // TODO: Add remaining encoding functions (SB, U, UJ types)
+    // SB-Type instructions (branches)
+    uint32_t encodeSBType(const string &opcode, uint32_t rs1, uint32_t rs2,
+                          int32_t imm, uint32_t funct3)
+    {
+        // Ensure branch offset is aligned
+        if (imm % 2 != 0)
+            throw runtime_error("Branch target must be 2-byte aligned");
+            
+        // For branch instructions, we divide the offset by 2 to get the 
+        // correct 13-bit signed offset (including the implicit 0 bit)
+        imm = imm >> 1;
+        
+        // Extract bits for encoding
+        uint32_t imm12 = (imm & 0x1000) >> 12;   // Bit 12
+        uint32_t imm11 = (imm & 0x800) >> 11;    // Bit 11
+        uint32_t imm10_5 = (imm & 0x7E0) >> 5;   // Bits 10-5
+        uint32_t imm4_1 = (imm & 0x1E) >> 1;     // Bits 4-1
+        
+        return (imm12 << 31)                 // Bit 12 (bit 31)
+               | (imm10_5 << 25)             // Bits 10-5 (bits 25-30)
+               | (rs2 << 20)                 // Source register 2 (bits 20-24)
+               | (rs1 << 15)                 // Source register 1 (bits 15-19)
+               | (funct3 << 12)              // Func3 bits (bits 12-14)
+               | (imm4_1 << 8)               // Bits 4-1 (bits 8-11)
+               | (imm11 << 7)                // Bit 11 (bit 7)
+               | stoul(opcode, nullptr, 16); // Opcode (bottom 7 bits)
+    }
+    
+    // U-Type instructions (lui, auipc)
+    uint32_t encodeUType(const string &opcode, uint32_t rd, int32_t imm)
+    {
+        // U-type uses the upper 20 bits of immediate
+        uint32_t imm31_12 = (imm & 0xFFFFF000);
+        
+        return imm31_12                      // Upper 20 bits (bits 12-31)
+               | (rd << 7)                   // Destination register (bits 7-11)
+               | stoul(opcode, nullptr, 16); // Opcode (bottom 7 bits)
+    }
+    
+    // UJ-Type instructions (jal)
+    uint32_t encodeUJType(const string &opcode, uint32_t rd, int32_t imm)
+    {
+        // Check that jump target is 2-byte aligned
+        if (imm % 2 != 0)
+            throw runtime_error("Jump target must be 2-byte aligned");
+            
+        // For jump instructions, we divide the offset by 2
+        imm = imm >> 1;
+        
+        // Extract bits for encoding
+        uint32_t imm20 = (imm & 0x100000) >> 20;     // Bit 20
+        uint32_t imm19_12 = (imm & 0xFF000) >> 12;   // Bits 19-12
+        uint32_t imm11 = (imm & 0x800) >> 11;        // Bit 11
+        uint32_t imm10_1 = (imm & 0x7FE) >> 1;       // Bits 10-1
+        
+        return (imm20 << 31)                 // Bit 20 (bit 31)
+               | (imm10_1 << 21)             // Bits 10-1 (bits 21-30)
+               | (imm11 << 20)               // Bit 11 (bit 20)
+               | (imm19_12 << 12)            // Bits 19-12 (bits 12-19)
+               | (rd << 7)                   // Destination register (bits 7-11)
+               | stoul(opcode, nullptr, 16); // Opcode (bottom 7 bits)
+    }
+
+    // Split a string into tokens
+    vector<string> split(const string &line)
+    {
+        vector<string> tokens;
+        stringstream ss(line);
+        string token;
+
+        while (ss >> token)
+        {
+            tokens.push_back(token);
+        }
+
+        return tokens;
+    }
+
+    // Convert decimal to hexadecimal string representation
+    string decToHex(long long dec)
+    {
+        stringstream ss;
+        ss << "0x" << hex << dec;
+        return ss.str();
+    }
 
     // FIRST PASS: Collect Symbol Table
-    // Scans the entire assembly file to:
-    // 1. Identify labels
-    // 2. Calculate their memory addresses
     void firstPass(const string &filename)
     {
         ifstream file(filename);
+        if (!file.is_open()) {
+            throw runtime_error("Failed to open input file: " + filename);
+        }
+        
         string line;
         uint32_t currentAddress = codeSegmentStart;
         string currentSegment = ".text";
@@ -146,14 +238,45 @@ private:
             {
                 string label = line.substr(0, line.find(':'));
                 symbolTable[label] = currentAddress;
+                labelSegment[label] = currentSegment; // Track which segment the label belongs to
 
                 // Remove label from line
                 line = line.substr(line.find(':') + 1);
                 line = regex_replace(line, regex("^\\s+"), "");
             }
 
+            // Store data lines for second pass
+            if (currentSegment == ".data" && !line.empty())
+            {
+                dataLines.push_back(line);
+                // Data address increment will be calculated in the assembleData function
+                
+                // Calculate address increment for data directives
+                vector<string> tokens = split(line);
+                if (!tokens.empty() && directivesSizes.find(tokens[0]) != directivesSizes.end())
+                {
+                    int size = directivesSizes[tokens[0]];
+                    if (tokens[0] == ".asciiz" && tokens.size() > 1) {
+                        // For .asciiz, the size is the string length + 1 (null terminator)
+                        string str = tokens[1];
+                        // Remove quotes
+                        if (str.size() >= 2 && str.front() == '"' && str.back() == '"') {
+                            str = str.substr(1, str.size() - 2);
+                        }
+                        currentAddress += (str.size() + 1) * size;
+                    } else {
+                        // For other directives, the size is the size of each element times the number of elements
+                        currentAddress += size * (tokens.size() - 1);
+                    }
+                    
+                    // Ensure proper alignment
+                    if (size > 1) {
+                        currentAddress = (currentAddress + size - 1) & ~(size - 1);
+                    }
+                }
+            }
             // Increment address for text segment instructions
-            if (currentSegment == ".text" && !line.empty())
+            else if (currentSegment == ".text" && !line.empty())
             {
                 currentAddress += 4; // Each instruction is 4 bytes
             }
@@ -161,10 +284,13 @@ private:
     }
 
     // SECOND PASS: Generate Machine Code
-    // Translates assembly instructions to their binary representation
     void secondPass(const string &filename)
     {
         ifstream file(filename);
+        if (!file.is_open()) {
+            throw runtime_error("Failed to open input file: " + filename);
+        }
+        
         string line;
         uint32_t currentAddress = codeSegmentStart;
         string currentSegment = ".text";
@@ -172,13 +298,24 @@ private:
         while (getline(file, line))
         {
             // Remove comments and skip empty lines
-            line = regex_replace(line, regex(";.*$"), ""); // removes anything after the semi colon
+            line = regex_replace(line, regex(";.*$"), "");
 
-            if (line.empty() || line.find(".text") != string::npos ||
-                line.find(".data") != string::npos ||
-                all_of(line.begin(), line.end(), ::isspace))
+            if (line.empty() || all_of(line.begin(), line.end(), ::isspace))
                 continue;
-            // the above code skips the empty lines
+                
+            // Handle segment directives
+            if (line.find(".text") != string::npos)
+            {
+                currentSegment = ".text";
+                currentAddress = codeSegmentStart;
+                continue;
+            }
+            if (line.find(".data") != string::npos)
+            {
+                currentSegment = ".data";
+                currentAddress = dataSegmentStart;
+                continue;
+            }
 
             // Remove labels
             if (line.find(':') != string::npos)
@@ -190,38 +327,343 @@ private:
             // Process text segment instructions
             if (currentSegment == ".text" && !line.empty())
             {
-                instructions.push_back({to_string(currentAddress),
-                                        processInstruction(line, currentAddress)});
-                currentAddress += 4;
+                try {
+                    string machineCode = processInstruction(line, currentAddress);
+                    outputLines.push_back(decToHex(currentAddress) + " " + machineCode);
+                    currentAddress += 4;
+                } catch (const exception& e) {
+                    cerr << "Error at address " << decToHex(currentAddress) << ": " << e.what() << endl;
+                    cerr << "Line: " << line << endl;
+                    exit(-1);
+                }
+            }
+        }
+
+        // Process data segment after code segment
+        assembleData();
+    }
+
+    // Process instruction implementation
+    string processInstruction(const string& line, uint32_t currentAddress)
+    {
+        vector<string> tokens = split(line);
+        if (tokens.empty()) {
+            throw runtime_error("Empty instruction");
+        }
+        
+        string mnemonic = tokens[0];
+        uint32_t encodedInstruction = 0;
+        
+        try {
+            // R-type instructions
+            if (mnemonic == "add") {
+                if (tokens.size() != 4) {
+                    throw runtime_error("add instruction requires 3 register operands");
+                }
+                uint32_t rd = parseRegister(tokens[1]);
+                uint32_t rs1 = parseRegister(tokens[2]);
+                uint32_t rs2 = parseRegister(tokens[3]);
+                encodedInstruction = encodeRType("0x33", rd, rs1, rs2, 0, 0);
+            }
+            else if (mnemonic == "sub") {
+                if (tokens.size() != 4) {
+                    throw runtime_error("sub instruction requires 3 register operands");
+                }
+                uint32_t rd = parseRegister(tokens[1]);
+                uint32_t rs1 = parseRegister(tokens[2]);
+                uint32_t rs2 = parseRegister(tokens[3]);
+                encodedInstruction = encodeRType("0x33", rd, rs1, rs2, 0, 0x20);
+            }
+            else if (mnemonic == "sll") {
+                if (tokens.size() != 4) {
+                    throw runtime_error("sll instruction requires 3 register operands");
+                }
+                uint32_t rd = parseRegister(tokens[1]);
+                uint32_t rs1 = parseRegister(tokens[2]);
+                uint32_t rs2 = parseRegister(tokens[3]);
+                encodedInstruction = encodeRType("0x33", rd, rs1, rs2, 1, 0);
+            }
+            // Add more R-type instructions here
+            
+            // I-type instructions
+            else if (mnemonic == "addi") {
+                if (tokens.size() != 4) {
+                    throw runtime_error("addi instruction requires 2 registers and an immediate");
+                }
+                uint32_t rd = parseRegister(tokens[1]);
+                uint32_t rs1 = parseRegister(tokens[2]);
+                int32_t imm = parseImmediate(tokens[3]);
+                encodedInstruction = encodeIType("0x13", rd, rs1, imm, 0);
+            }
+            else if (mnemonic == "lw") {
+                if (tokens.size() != 3) {
+                    throw runtime_error("lw instruction requires 2 operands: register and memory address");
+                }
+                uint32_t rd = parseRegister(tokens[1]);
+                
+                // Parse memory operand of format: imm(rs1)
+                string memOp = tokens[2];
+                size_t openParen = memOp.find('(');
+                size_t closeParen = memOp.find(')');
+                
+                if (openParen == string::npos || closeParen == string::npos) {
+                    throw runtime_error("Invalid memory addressing format: " + memOp);
+                }
+                
+                string immStr = memOp.substr(0, openParen);
+                string rs1Str = memOp.substr(openParen + 1, closeParen - openParen - 1);
+                
+                int32_t imm = parseImmediate(immStr);
+                uint32_t rs1 = parseRegister(rs1Str);
+                
+                encodedInstruction = encodeIType("0x03", rd, rs1, imm, 2); // 2 for lw funct3
+            }
+            // Add more I-type instructions here
+            
+            // S-type instructions
+            else if (mnemonic == "sw") {
+                if (tokens.size() != 3) {
+                    throw runtime_error("sw instruction requires 2 operands: register and memory address");
+                }
+                uint32_t rs2 = parseRegister(tokens[1]);
+                
+                // Parse memory operand of format: imm(rs1)
+                string memOp = tokens[2];
+                size_t openParen = memOp.find('(');
+                size_t closeParen = memOp.find(')');
+                
+                if (openParen == string::npos || closeParen == string::npos) {
+                    throw runtime_error("Invalid memory addressing format: " + memOp);
+                }
+                
+                string immStr = memOp.substr(0, openParen);
+                string rs1Str = memOp.substr(openParen + 1, closeParen - openParen - 1);
+                
+                int32_t imm = parseImmediate(immStr);
+                uint32_t rs1 = parseRegister(rs1Str);
+                
+                encodedInstruction = encodeSType("0x23", rs1, rs2, imm, 2); // 2 for sw funct3
+            }
+            // Add more S-type instructions here
+            
+            // SB-type instructions (branches)
+            else if (mnemonic == "beq") {
+                if (tokens.size() != 4) {
+                    throw runtime_error("beq instruction requires 3 operands: two registers and a target");
+                }
+                uint32_t rs1 = parseRegister(tokens[1]);
+                uint32_t rs2 = parseRegister(tokens[2]);
+                int32_t imm = parseImmediate(tokens[3], currentAddress, true);
+                encodedInstruction = encodeSBType("0x63", rs1, rs2, imm, 0); // 0 for beq funct3
+            }
+            else if (mnemonic == "bne") {
+                if (tokens.size() != 4) {
+                    throw runtime_error("bne instruction requires 3 operands: two registers and a target");
+                }
+                uint32_t rs1 = parseRegister(tokens[1]);
+                uint32_t rs2 = parseRegister(tokens[2]);
+                int32_t imm = parseImmediate(tokens[3], currentAddress, true);
+                encodedInstruction = encodeSBType("0x63", rs1, rs2, imm, 1); // 1 for bne funct3
+            }
+            // Add more SB-type instructions here
+            
+            // U-type instructions
+            else if (mnemonic == "lui") {
+                if (tokens.size() != 3) {
+                    throw runtime_error("lui instruction requires 2 operands: register and immediate");
+                }
+                uint32_t rd = parseRegister(tokens[1]);
+                int32_t imm = parseImmediate(tokens[2]);
+                encodedInstruction = encodeUType("0x37", rd, imm);
+            }
+            else if (mnemonic == "auipc") {
+                if (tokens.size() != 3) {
+                    throw runtime_error("auipc instruction requires 2 operands: register and immediate");
+                }
+                uint32_t rd = parseRegister(tokens[1]);
+                int32_t imm = parseImmediate(tokens[2]);
+                encodedInstruction = encodeUType("0x17", rd, imm);
+            }
+            // Add more U-type instructions here
+            
+            // UJ-type instructions
+            else if (mnemonic == "jal") {
+                if (tokens.size() != 3) {
+                    throw runtime_error("jal instruction requires 2 operands: register and target");
+                }
+                uint32_t rd = parseRegister(tokens[1]);
+                int32_t imm = parseImmediate(tokens[2], currentAddress, true);
+                encodedInstruction = encodeUJType("0x6F", rd, imm);
+            }
+            // Add more UJ-type instructions here
+            
+            else {
+                throw runtime_error("Unsupported instruction: " + mnemonic);
+            }
+        } catch (const exception& e) {
+            throw runtime_error(string("Error processing instruction: ") + e.what());
+        }
+        
+        // Return encoded instruction as hexadecimal string
+        return "0x" + to_string_hex(encodedInstruction);
+    }
+
+    // Helper function to convert integer to hexadecimal string
+    string to_string_hex(uint32_t value)
+    {
+        stringstream ss;
+        ss << hex << setw(8) << setfill('0') << value;
+        return ss.str();
+    }
+
+    // Process data segment
+    void assembleData()
+    {
+        vector<string> words;                 // stores tokens of a given command
+        int size;                             // stores size of data element to be added
+        long long address = dataSegmentStart; // Starting address of data
+        long long val;                        // Temporarily stores value from a command
+
+        for (auto code : dataLines)
+        {
+            words = split(code); // split command into individual tokens
+            
+            if (words.empty()) continue;
+
+            if (directivesSizes.find(words[0]) != directivesSizes.end())
+            {
+                size = directivesSizes[words[0]]; // extract size of data to be stored
+                
+                // Ensure proper alignment for multi-byte data
+                if (size > 1) {
+                    address = (address + size - 1) & ~(size - 1);
+                }
+            }
+            else // Error handling
+            {
+                cerr << "Error at .data segment" << endl;
+                cerr << "Line : " << code << endl;
+                cerr << "Unknown directive: " << words[0] << endl;
+                exit(-1);
+            }
+
+            if (words[0] == ".asciiz") // for .asciiz
+            {
+                if (words.size() < 2) {
+                    cerr << "Error: .asciiz directive requires a string argument" << endl;
+                    cerr << "Line: " << code << endl;
+                    exit(-1);
+                }
+                
+                string s = words[1];
+                // Remove quotes if present
+                if (s.size() >= 2 && s.front() == '"' && s.back() == '"') {
+                    s = s.substr(1, s.size() - 2);
+                }
+
+                for (int i = 0; i < s.length(); i++)
+                {
+                    val = s[i]; // get ASCII value
+
+                    // Error handling
+                    if (val < 0 || val > 255)
+                    {
+                        cerr << "Error at .data segment" << endl;
+                        cerr << "Line : " << code << endl;
+                        cerr << "Value out of bounds: " << val << endl;
+                        exit(-1);
+                    }
+
+                    string output = decToHex(address) + " " + decToHex(val); // building final output
+                    outputLines.push_back(output);                           // adding output
+                    address += size;                                         // updating data Address
+                }
+
+                // Add null terminator for .asciiz
+                outputLines.push_back(decToHex(address) + " " + decToHex(0));
+                address += size;
+            }
+            else // for other directives
+            {
+                if (words.size() < 2) {
+                    cerr << "Error: " << words[0] << " directive requires at least one argument" << endl;
+                    cerr << "Line: " << code << endl;
+                    exit(-1);
+                }
+                
+                for (int i = 1; i < words.size(); i++)
+                {
+                    try {
+                        val = stoll(words[i]); // Extracting values
+                    } catch (const exception& e) {
+                        cerr << "Error parsing data value: " << words[i] << endl;
+                        cerr << "Line: " << code << endl;
+                        exit(-1);
+                    }
+
+                    // Error handling for value ranges
+                    int64_t min_val = -(static_cast<int64_t>(1) << (size * 8 - 1));
+                    int64_t max_val = (static_cast<int64_t>(1) << (size * 8 - 1)) - 1;
+                    
+                    if (val < min_val || val > max_val)
+                    {
+                        cerr << "Error at .data segment" << endl;
+                        cerr << "Line : " << code << endl;
+                        cerr << "Value out of bounds for " << words[0] << ": " << val << endl;
+                        cerr << "Valid range: " << min_val << " to " << max_val << endl;
+                        exit(-1);
+                    }
+
+                    string output = decToHex(address) + " " + decToHex(val); // building final output
+                    outputLines.push_back(output);                           // adding output
+                    address += size;                                         // updating data Address
+                }
             }
         }
     }
 
-    // Main instruction processing method (TODO: Full implementation)
-    string processInstruction(const string &line, uint32_t currentAddress)
+    // Initialize the directives sizes map
+    void initDirectivesSizes()
     {
-        // Placeholder for full instruction processing logic
-        // Would parse different instruction types and generate machine code
-        throw runtime_error("Instruction processing not fully implemented");
+        directivesSizes[".byte"] = 1;   // 1 byte
+        directivesSizes[".half"] = 2;   // 2 bytes
+        directivesSizes[".word"] = 4;   // 4 bytes
+        directivesSizes[".asciiz"] = 1; // 1 byte per character
+        directivesSizes[".space"] = 1;  // 1 byte per space
     }
 
 public:
-    // Main assembler method
+    // Constructor
+    RISCVAssembler()
+    {
+        initDirectivesSizes();
+    }
 
+    // Main assembler method
     void assemble(const string &inputFile, const string &outputFile)
     {
-        // Collect symbol information in first pass
-        firstPass(inputFile);
+        try {
+            // Collect symbol information in first pass
+            firstPass(inputFile);
 
-        // Generate machine code in second pass
-        secondPass(inputFile);
+            // Generate machine code in second pass
+            secondPass(inputFile);
 
-        // Write machine code to output file
-        ofstream outFile(outputFile);
+            // Write machine code to output file
+            ofstream outFile(outputFile);
+            if (!outFile.is_open()) {
+                throw runtime_error("Failed to open output file: " + outputFile);
+            }
 
-        for (const auto &pair : instructions)
-        {
-            outFile << pair.first << " " << pair.second << endl;
+            for (const auto &line : outputLines)
+            {
+                outFile << line << endl;
+            }
+            
+            cout << "Assembly successful. Output written to " << outputFile << endl;
+        } catch (const exception& e) {
+            cerr << "Assembly failed: " << e.what() << endl;
+            exit(-1);
         }
     }
 };

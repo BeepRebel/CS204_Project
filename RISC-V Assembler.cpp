@@ -20,62 +20,38 @@ struct InstructionInfo {
 
 // Define the instruction table
 unordered_map<string, InstructionInfo> instructionTable;
+unordered_map<string, int> directivesSizes;
 
 // Initialize the instruction table
 void initInstructionTable() {
     // R-type instructions
-    // Base RV32I instructions
     instructionTable["add"] = {InstructionInfo::R_TYPE, "0x33", 0, 0x00, 3};
-    instructionTable["sub"] = {InstructionInfo::R_TYPE, "0x33", 0, 0x20, 3};
+    instructionTable["and"] = {InstructionInfo::R_TYPE, "0x33", 7, 0x00, 3};
+    instructionTable["or"] = {InstructionInfo::R_TYPE, "0x33", 6, 0x00, 3};
     instructionTable["sll"] = {InstructionInfo::R_TYPE, "0x33", 1, 0x00, 3};
     instructionTable["slt"] = {InstructionInfo::R_TYPE, "0x33", 2, 0x00, 3};
-    instructionTable["sltu"] = {InstructionInfo::R_TYPE, "0x33", 3, 0x00, 3};
-    instructionTable["xor"] = {InstructionInfo::R_TYPE, "0x33", 4, 0x00, 3};
-    instructionTable["srl"] = {InstructionInfo::R_TYPE, "0x33", 5, 0x00, 3};
     instructionTable["sra"] = {InstructionInfo::R_TYPE, "0x33", 5, 0x20, 3};
-    instructionTable["or"] = {InstructionInfo::R_TYPE, "0x33", 6, 0x00, 3};
-    instructionTable["and"] = {InstructionInfo::R_TYPE, "0x33", 7, 0x00, 3};
-    
-    // M extension instructions
+    instructionTable["srl"] = {InstructionInfo::R_TYPE, "0x33", 5, 0x00, 3};
+    instructionTable["sub"] = {InstructionInfo::R_TYPE, "0x33", 0, 0x20, 3};
+    instructionTable["xor"] = {InstructionInfo::R_TYPE, "0x33", 4, 0x00, 3};
     instructionTable["mul"] = {InstructionInfo::R_TYPE, "0x33", 0, 0x01, 3};
-    instructionTable["mulh"] = {InstructionInfo::R_TYPE, "0x33", 1, 0x01, 3};
-    instructionTable["mulhsu"] = {InstructionInfo::R_TYPE, "0x33", 2, 0x01, 3};
-    instructionTable["mulhu"] = {InstructionInfo::R_TYPE, "0x33", 3, 0x01, 3};
     instructionTable["div"] = {InstructionInfo::R_TYPE, "0x33", 4, 0x01, 3};
-    instructionTable["divu"] = {InstructionInfo::R_TYPE, "0x33", 5, 0x01, 3};
     instructionTable["rem"] = {InstructionInfo::R_TYPE, "0x33", 6, 0x01, 3};
-    instructionTable["remu"] = {InstructionInfo::R_TYPE, "0x33", 7, 0x01, 3};
     
     // I-type instructions
-    // Base ALU operations
     instructionTable["addi"] = {InstructionInfo::I_TYPE, "0x13", 0, 0, 3};
-    instructionTable["slti"] = {InstructionInfo::I_TYPE, "0x13", 2, 0, 3};
-    instructionTable["sltiu"] = {InstructionInfo::I_TYPE, "0x13", 3, 0, 3};
-    instructionTable["xori"] = {InstructionInfo::I_TYPE, "0x13", 4, 0, 3};
-    instructionTable["ori"] = {InstructionInfo::I_TYPE, "0x13", 6, 0, 3};
     instructionTable["andi"] = {InstructionInfo::I_TYPE, "0x13", 7, 0, 3};
-    instructionTable["slli"] = {InstructionInfo::I_TYPE, "0x13", 1, 0, 3};
-    instructionTable["srli"] = {InstructionInfo::I_TYPE, "0x13", 5, 0, 3};
-    instructionTable["srai"] = {InstructionInfo::I_TYPE, "0x13", 5, 0x20, 3};
-    
-    // Load instructions (I-type)
+    instructionTable["ori"] = {InstructionInfo::I_TYPE, "0x13", 6, 0, 3};
     instructionTable["lb"] = {InstructionInfo::I_TYPE, "0x03", 0, 0, 2};
+    instructionTable["ld"] = {InstructionInfo::I_TYPE, "0x03", 3, 0, 2};
     instructionTable["lh"] = {InstructionInfo::I_TYPE, "0x03", 1, 0, 2};
     instructionTable["lw"] = {InstructionInfo::I_TYPE, "0x03", 2, 0, 2};
-    instructionTable["lbu"] = {InstructionInfo::I_TYPE, "0x03", 4, 0, 2};
-    instructionTable["lhu"] = {InstructionInfo::I_TYPE, "0x03", 5, 0, 2};
-    // RV64I load instruction
-    instructionTable["ld"] = {InstructionInfo::I_TYPE, "0x03", 3, 0, 2};
-    instructionTable["lwu"] = {InstructionInfo::I_TYPE, "0x03", 6, 0, 2};
-    
-    // Jump instructions (I-type)
     instructionTable["jalr"] = {InstructionInfo::I_TYPE, "0x67", 0, 0, 3};
-    
+
     // S-type instructions (Store)
     instructionTable["sb"] = {InstructionInfo::S_TYPE, "0x23", 0, 0, 2};
     instructionTable["sh"] = {InstructionInfo::S_TYPE, "0x23", 1, 0, 2};
     instructionTable["sw"] = {InstructionInfo::S_TYPE, "0x23", 2, 0, 2};
-    // RV64I store instruction
     instructionTable["sd"] = {InstructionInfo::S_TYPE, "0x23", 3, 0, 2};
     
     // SB-type instructions (branches)
@@ -83,8 +59,6 @@ void initInstructionTable() {
     instructionTable["bne"] = {InstructionInfo::SB_TYPE, "0x63", 1, 0, 3};
     instructionTable["blt"] = {InstructionInfo::SB_TYPE, "0x63", 4, 0, 3};
     instructionTable["bge"] = {InstructionInfo::SB_TYPE, "0x63", 5, 0, 3};
-    instructionTable["bltu"] = {InstructionInfo::SB_TYPE, "0x63", 6, 0, 3};
-    instructionTable["bgeu"] = {InstructionInfo::SB_TYPE, "0x63", 7, 0, 3};
     
     // U-type instructions
     instructionTable["lui"] = {InstructionInfo::U_TYPE, "0x37", 0, 0, 2};
@@ -92,8 +66,18 @@ void initInstructionTable() {
     
     // UJ-type instructions
     instructionTable["jal"] = {InstructionInfo::UJ_TYPE, "0x6F", 0, 0, 2};
+} 
+
+// Initialize the directives sizes map
+void initDirectivesSizes()
+{
+     directivesSizes[".byte"] = 1;   // 1 byte
+     directivesSizes[".half"] = 2;   // 2 bytes
+     directivesSizes[".word"] = 4;   // 4 bytes
+     directivesSizes[".asciiz"] = 1; // 1 byte per character
+     directivesSizes[".dword"] = 8;  // 8 bytes
 }
-   
+
 class RISCVAssembler
 {
 private:
@@ -103,14 +87,9 @@ private:
     // Track which segment each label belongs to
     unordered_map<string, string> labelSegment;
 
-    // Directive sizes map: maps directives to their byte sizes
-    unordered_map<string, int> directivesSizes;
-
     // Memory Segment Definitions
     uint32_t codeSegmentStart = 0x00000000; // Start of executable code
     uint32_t dataSegmentStart = 0x10000000; // Start of data segment (0x10000000 = 268435456)
-    uint32_t heapStart = 0x10008000;        // Heap memory start
-    uint32_t stackStart = 0x7FFFFFD0;       // Stack memory start
 
     // Stores the generated instructions with their addresses
     vector<pair<string, string>> instructions;
@@ -419,7 +398,7 @@ string processInstruction(const string& line, uint32_t currentAddress)
                 string funct3Bin = bitset<3>(info.funct3).to_string();
                 string rdBin = bitset<5>(rd).to_string();
                 string opcodeBin = bitset<7>(stoul(info.opcode, nullptr, 16)).to_string();
-                decodedBinary = funct7Bin + "-" + rs2Bin + "-" + rs1Bin + "-" + funct3Bin + "-" + rdBin + "-" + opcodeBin;
+                decodedBinary = opcodeBin + "-" + funct3Bin + "-" + funct7Bin + "-" + rdBin + "-" + rs1Bin + "-" + rs2Bin + "NULL";
                 break;
             }
             case InstructionInfo::I_TYPE: {
@@ -457,7 +436,7 @@ string processInstruction(const string& line, uint32_t currentAddress)
                 string funct3Bin = bitset<3>(info.funct3).to_string();
                 string rdBin = bitset<5>(rd).to_string();
                 string opcodeBin = bitset<7>(stoul(info.opcode, nullptr, 16)).to_string();
-                decodedBinary = immBin + "-" + rs1Bin + "-" + funct3Bin + "-" + rdBin + "-" + opcodeBin;
+                decodedBinary = opcodeBin + "-" + funct3Bin + "-" + "NULL" + "-" + rdBin + "-" + rs1Bin + "-" + "NULL" + immBin;
                 break;
             }
             case InstructionInfo::S_TYPE: {
@@ -489,7 +468,7 @@ string processInstruction(const string& line, uint32_t currentAddress)
                 string funct3Bin = bitset<3>(info.funct3).to_string();
                 string imm4_0Bin = bitset<5>(imm4_0).to_string();
                 string opcodeBin = bitset<7>(stoul(info.opcode, nullptr, 16)).to_string();
-                decodedBinary = imm11_5Bin + "-" + rs2Bin + "-" + rs1Bin + "-" + funct3Bin + "-" + imm4_0Bin + "-" + opcodeBin;
+                decodedBinary = opcodeBin + "-" + funct3Bin + "-" + "NULL" + "NULL" + rs1Bin + "-" + rs2Bin + imm11_5Bin + "-" + imm4_0Bin;
                 break;
             }
             case InstructionInfo::SB_TYPE: {
@@ -512,7 +491,7 @@ string processInstruction(const string& line, uint32_t currentAddress)
                 string funct3Bin = bitset<3>(info.funct3).to_string();
                 string imm4_1_0Bin = bitset<4>(imm4_1).to_string() + "0";
                 string opcodeBin = bitset<7>(stoul(info.opcode, nullptr, 16)).to_string();
-                decodedBinary = imm12_11Bin + "-" + imm10_5Bin + "-" + rs2Bin + "-" + rs1Bin + "-" + funct3Bin + "-" + imm4_1_0Bin + "-" + opcodeBin;
+                decodedBinary = opcodeBin + "-" + funct3Bin + "-" + "NULL" + "-" + "NULL" + "-" + rs1Bin + "-" + rs2Bin + "NULL" + imm12_11Bin + "-" + imm10_5Bin + "-" + imm4_1_0Bin;
                 break;
             }
             case InstructionInfo::U_TYPE: {
@@ -524,7 +503,8 @@ string processInstruction(const string& line, uint32_t currentAddress)
                 string immBin = bitset<20>((imm & 0xFFFFF000) >> 12).to_string();
                 string rdBin = bitset<5>(rd).to_string();
                 string opcodeBin = bitset<7>(stoul(info.opcode, nullptr, 16)).to_string();
-                decodedBinary = immBin + "-" + rdBin + "-" + opcodeBin;
+                
+                decodedBinary = opcodeBin + "-" + "NULL" + "-" + "NULL" + "NULL" + "NULL" + "-" + "NULL" + immBin;
                 break;
             }
             case InstructionInfo::UJ_TYPE: {
@@ -545,7 +525,7 @@ string processInstruction(const string& line, uint32_t currentAddress)
                                 bitset<10>(imm10_1).to_string();
                 string rdBin = bitset<5>(rd).to_string();
                 string opcodeBin = bitset<7>(stoul(info.opcode, nullptr, 16)).to_string();
-                decodedBinary = immBin + "-" + rdBin + "-" + opcodeBin;
+                decodedBinary = opcodeBin + "-" + "NULL" + "-" + "NULL" + "NULL" + "NULL" + "-" + "NULL" + immBin;
                 break;
             }
             default:
@@ -740,15 +720,6 @@ void secondPass(const string &filename)
 
     // Process data segment
     // Process data segment
- // Initialize the directives sizes map
-    void initDirectivesSizes()
-    {
-        directivesSizes[".byte"] = 1;   // 1 byte
-        directivesSizes[".half"] = 2;   // 2 bytes
-        directivesSizes[".word"] = 4;   // 4 bytes
-        directivesSizes[".asciiz"] = 1; // 1 byte per character
-        directivesSizes[".space"] = 1;  // 1 byte per space
-    }
 
 public:
     // Constructor

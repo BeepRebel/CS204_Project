@@ -70,6 +70,41 @@ private:
                | stoul(opcode, nullptr, 16); // Opcode (bottom 7 bits)
     }
 
+    // I-type instruction encoding (immediate and load instructions)
+    // Example instructions: addi, andi, lb, lw, etc.
+    uint32_t encodeIType(const string &opcode, uint32_t rd, uint32_t rs1,
+                         uint32_t imm, uint32_t funct3)
+    {
+        // Sign extend 12-bit immediate
+        int32_t signedImm = imm & 0xFFF;
+        if (signedImm & 0x800)
+            signedImm |= 0xFFFFF000;
+
+        return (signedImm << 20)             // Immediate value (bits 20-31)
+               | (rs1 << 15)                 // Source register 1 (bits 15-19)
+               | (funct3 << 12)              // Func3 bits (bits 12-14)
+               | (rd << 7)                   // Destination register (bits 7-11)
+               | stoul(opcode, nullptr, 16); // Opcode (bottom 7 bits)
+    }
+
+    // S-type instruction encoding (store instructions)
+    // Example instructions: sw, sb, sh
+    uint32_t encodeSType(const string &opcode, uint32_t rs1, uint32_t rs2,
+                         uint32_t imm, uint32_t funct3)
+    {
+        // Split 12-bit immediate into two parts for encoding
+        int32_t signedImm = imm & 0xFFF;
+        uint32_t imm11_5 = (signedImm & 0xFE0) >> 5; // Upper 7 bits
+        uint32_t imm4_0 = signedImm & 0x1F;          // Lower 5 bits
+
+        return (imm11_5 << 25)               // Immediate [11:5] (bits 25-31)
+               | (rs2 << 20)                 // Source register 2 (bits 20-24)
+               | (rs1 << 15)                 // Source register 1 (bits 15-19)
+               | (funct3 << 12)              // Func3 bits (bits 12-14)
+               | (imm4_0 << 7)               // Immediate [4:0] (bits 7-11)
+               | stoul(opcode, nullptr, 16); // Opcode (bottom 7 bits)
+    }
+
     // TODO: Add remaining encoding functions (SB, U, UJ types)
 
     // FIRST PASS: Collect Symbol Table
@@ -127,6 +162,40 @@ private:
 
     // SECOND PASS: Generate Machine Code
     // Translates assembly instructions to their binary representation
+    void secondPass(const string &filename)
+    {
+        ifstream file(filename);
+        string line;
+        uint32_t currentAddress = codeSegmentStart;
+        string currentSegment = ".text";
+
+        while (getline(file, line))
+        {
+            // Remove comments and skip empty lines
+            line = regex_replace(line, regex(";.*$"), ""); // removes anything after the semi colon
+
+            if (line.empty() || line.find(".text") != string::npos ||
+                line.find(".data") != string::npos ||
+                all_of(line.begin(), line.end(), ::isspace))
+                continue;
+            // the above code skips the empty lines
+
+            // Remove labels
+            if (line.find(':') != string::npos)
+            {
+                line = line.substr(line.find(':') + 1);
+                line = regex_replace(line, regex("^\\s+"), "");
+            }
+
+            // Process text segment instructions
+            if (currentSegment == ".text" && !line.empty())
+            {
+                instructions.push_back({to_string(currentAddress),
+                                        processInstruction(line, currentAddress)});
+                currentAddress += 4;
+            }
+        }
+    }
 
     // Main instruction processing method (TODO: Full implementation)
     string processInstruction(const string &line, uint32_t currentAddress)

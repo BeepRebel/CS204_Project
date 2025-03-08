@@ -1,6 +1,99 @@
 #include <bits/stdc++.h>
 using namespace std;
+// First, define a structure to hold instruction information
+struct InstructionInfo {
+    enum InstructionType {
+        R_TYPE,
+        I_TYPE,
+        S_TYPE,
+        SB_TYPE,
+        U_TYPE,
+        UJ_TYPE
+    };
+    
+    InstructionType type;
+    string opcode;
+    uint32_t funct3;
+    uint32_t funct7;
+    int operandCount;
+};
 
+// Define the instruction table
+unordered_map<string, InstructionInfo> instructionTable;
+
+// Initialize the instruction table
+void initInstructionTable() {
+    // R-type instructions
+    // Base RV32I instructions
+    instructionTable["add"] = {InstructionInfo::R_TYPE, "0x33", 0, 0x00, 3};
+    instructionTable["sub"] = {InstructionInfo::R_TYPE, "0x33", 0, 0x20, 3};
+    instructionTable["sll"] = {InstructionInfo::R_TYPE, "0x33", 1, 0x00, 3};
+    instructionTable["slt"] = {InstructionInfo::R_TYPE, "0x33", 2, 0x00, 3};
+    instructionTable["sltu"] = {InstructionInfo::R_TYPE, "0x33", 3, 0x00, 3};
+    instructionTable["xor"] = {InstructionInfo::R_TYPE, "0x33", 4, 0x00, 3};
+    instructionTable["srl"] = {InstructionInfo::R_TYPE, "0x33", 5, 0x00, 3};
+    instructionTable["sra"] = {InstructionInfo::R_TYPE, "0x33", 5, 0x20, 3};
+    instructionTable["or"] = {InstructionInfo::R_TYPE, "0x33", 6, 0x00, 3};
+    instructionTable["and"] = {InstructionInfo::R_TYPE, "0x33", 7, 0x00, 3};
+    
+    // M extension instructions
+    instructionTable["mul"] = {InstructionInfo::R_TYPE, "0x33", 0, 0x01, 3};
+    instructionTable["mulh"] = {InstructionInfo::R_TYPE, "0x33", 1, 0x01, 3};
+    instructionTable["mulhsu"] = {InstructionInfo::R_TYPE, "0x33", 2, 0x01, 3};
+    instructionTable["mulhu"] = {InstructionInfo::R_TYPE, "0x33", 3, 0x01, 3};
+    instructionTable["div"] = {InstructionInfo::R_TYPE, "0x33", 4, 0x01, 3};
+    instructionTable["divu"] = {InstructionInfo::R_TYPE, "0x33", 5, 0x01, 3};
+    instructionTable["rem"] = {InstructionInfo::R_TYPE, "0x33", 6, 0x01, 3};
+    instructionTable["remu"] = {InstructionInfo::R_TYPE, "0x33", 7, 0x01, 3};
+    
+    // I-type instructions
+    // Base ALU operations
+    instructionTable["addi"] = {InstructionInfo::I_TYPE, "0x13", 0, 0, 3};
+    instructionTable["slti"] = {InstructionInfo::I_TYPE, "0x13", 2, 0, 3};
+    instructionTable["sltiu"] = {InstructionInfo::I_TYPE, "0x13", 3, 0, 3};
+    instructionTable["xori"] = {InstructionInfo::I_TYPE, "0x13", 4, 0, 3};
+    instructionTable["ori"] = {InstructionInfo::I_TYPE, "0x13", 6, 0, 3};
+    instructionTable["andi"] = {InstructionInfo::I_TYPE, "0x13", 7, 0, 3};
+    instructionTable["slli"] = {InstructionInfo::I_TYPE, "0x13", 1, 0, 3};
+    instructionTable["srli"] = {InstructionInfo::I_TYPE, "0x13", 5, 0, 3};
+    instructionTable["srai"] = {InstructionInfo::I_TYPE, "0x13", 5, 0x20, 3};
+    
+    // Load instructions (I-type)
+    instructionTable["lb"] = {InstructionInfo::I_TYPE, "0x03", 0, 0, 2};
+    instructionTable["lh"] = {InstructionInfo::I_TYPE, "0x03", 1, 0, 2};
+    instructionTable["lw"] = {InstructionInfo::I_TYPE, "0x03", 2, 0, 2};
+    instructionTable["lbu"] = {InstructionInfo::I_TYPE, "0x03", 4, 0, 2};
+    instructionTable["lhu"] = {InstructionInfo::I_TYPE, "0x03", 5, 0, 2};
+    // RV64I load instruction
+    instructionTable["ld"] = {InstructionInfo::I_TYPE, "0x03", 3, 0, 2};
+    instructionTable["lwu"] = {InstructionInfo::I_TYPE, "0x03", 6, 0, 2};
+    
+    // Jump instructions (I-type)
+    instructionTable["jalr"] = {InstructionInfo::I_TYPE, "0x67", 0, 0, 3};
+    
+    // S-type instructions (Store)
+    instructionTable["sb"] = {InstructionInfo::S_TYPE, "0x23", 0, 0, 2};
+    instructionTable["sh"] = {InstructionInfo::S_TYPE, "0x23", 1, 0, 2};
+    instructionTable["sw"] = {InstructionInfo::S_TYPE, "0x23", 2, 0, 2};
+    // RV64I store instruction
+    instructionTable["sd"] = {InstructionInfo::S_TYPE, "0x23", 3, 0, 2};
+    
+    // SB-type instructions (branches)
+    instructionTable["beq"] = {InstructionInfo::SB_TYPE, "0x63", 0, 0, 3};
+    instructionTable["bne"] = {InstructionInfo::SB_TYPE, "0x63", 1, 0, 3};
+    instructionTable["blt"] = {InstructionInfo::SB_TYPE, "0x63", 4, 0, 3};
+    instructionTable["bge"] = {InstructionInfo::SB_TYPE, "0x63", 5, 0, 3};
+    instructionTable["bltu"] = {InstructionInfo::SB_TYPE, "0x63", 6, 0, 3};
+    instructionTable["bgeu"] = {InstructionInfo::SB_TYPE, "0x63", 7, 0, 3};
+    
+    // U-type instructions
+    instructionTable["lui"] = {InstructionInfo::U_TYPE, "0x37", 0, 0, 2};
+    instructionTable["auipc"] = {InstructionInfo::U_TYPE, "0x17", 0, 0, 2};
+    
+    // UJ-type instructions
+    instructionTable["jal"] = {InstructionInfo::UJ_TYPE, "0x6F", 0, 0, 2};
+}
+   
 class RISCVAssembler
 {
 private:
@@ -284,66 +377,8 @@ private:
     }
 
     // SECOND PASS: Generate Machine Code
-    void secondPass(const string &filename)
-    {
-        ifstream file(filename);
-        if (!file.is_open()) {
-            throw runtime_error("Failed to open input file: " + filename);
-        }
-        
-        string line;
-        uint32_t currentAddress = codeSegmentStart;
-        string currentSegment = ".text";
-
-        while (getline(file, line))
-        {
-            // Remove comments and skip empty lines
-            line = regex_replace(line, regex(";.*$"), "");
-
-            if (line.empty() || all_of(line.begin(), line.end(), ::isspace))
-                continue;
-                
-            // Handle segment directives
-            if (line.find(".text") != string::npos)
-            {
-                currentSegment = ".text";
-                currentAddress = codeSegmentStart;
-                continue;
-            }
-            if (line.find(".data") != string::npos)
-            {
-                currentSegment = ".data";
-                currentAddress = dataSegmentStart;
-                continue;
-            }
-
-            // Remove labels
-            if (line.find(':') != string::npos)
-            {
-                line = line.substr(line.find(':') + 1);
-                line = regex_replace(line, regex("^\\s+"), "");
-            }
-
-            // Process text segment instructions
-            if (currentSegment == ".text" && !line.empty())
-            {
-                try {
-                    string machineCode = processInstruction(line, currentAddress);
-                    outputLines.push_back(decToHex(currentAddress) + " " + machineCode);
-                    currentAddress += 4;
-                } catch (const exception& e) {
-                    cerr << "Error at address " << decToHex(currentAddress) << ": " << e.what() << endl;
-                    cerr << "Line: " << line << endl;
-                    exit(-1);
-                }
-            }
-        }
-
-        // Process data segment after code segment
-        assembleData();
-    }
-
-    string processInstruction(const string& line, uint32_t currentAddress)
+// Process instruction implementation
+string processInstruction(const string& line, uint32_t currentAddress)
 {
     vector<string> tokens = split(line);
     if (tokens.empty()) {
@@ -352,111 +387,349 @@ private:
     
     string mnemonic = tokens[0];
     uint32_t encodedInstruction = 0;
+    string decodedBinary = "";
     
     try {
-        // R-type instructions
-        if (mnemonic == "add" || mnemonic == "and" || mnemonic == "or" || mnemonic == "sll" || 
-            mnemonic == "slt" || mnemonic == "sra" || mnemonic == "srl" || mnemonic == "sub" || 
-            mnemonic == "xor" || mnemonic == "mul" || mnemonic == "div" || mnemonic == "rem") {
-            if (tokens.size() != 4) {
-                throw runtime_error(mnemonic + " instruction requires 3 register operands");
-            }
-            uint32_t rd = parseRegister(tokens[1]);
-            uint32_t rs1 = parseRegister(tokens[2]);
-            uint32_t rs2 = parseRegister(tokens[3]);
-            
-            uint32_t funct3 = (mnemonic == "sll") ? 1 : (mnemonic == "slt") ? 2 : (mnemonic == "xor") ? 4 :
-                              (mnemonic == "srl" || mnemonic == "sra") ? 5 : (mnemonic == "or") ? 6 :
-                              (mnemonic == "and") ? 7 : 0;
-            
-            uint32_t funct7 = (mnemonic == "sub" || mnemonic == "sra") ? 0x20 : 
-                              (mnemonic == "mul") ? 0x01 : (mnemonic == "div") ? 0x01 : 
-                              (mnemonic == "rem") ? 0x01 : 0;
-            
-            encodedInstruction = encodeRType("0x33", rd, rs1, rs2, funct3, funct7);
+        // Check if this is a known instruction
+        if (instructionTable.find(mnemonic) == instructionTable.end()) {
+            throw runtime_error("Unknown instruction: " + mnemonic);
         }
         
-        // I-type instructions
-        else if (mnemonic == "addi" || mnemonic == "andi" || mnemonic == "ori" || 
-                 mnemonic == "lb" || mnemonic == "ld" || mnemonic == "lh" || mnemonic == "lw" || mnemonic == "jalr") {
-            if (tokens.size() != 4) {
-                throw runtime_error(mnemonic + " instruction requires 2 registers and an immediate");
-            }
-            uint32_t rd = parseRegister(tokens[1]);
-            uint32_t rs1 = parseRegister(tokens[2]);
-            int32_t imm = parseImmediate(tokens[3]);
-            
-            uint32_t funct3 = (mnemonic == "andi") ? 7 : (mnemonic == "ori") ? 6 : 
-                              (mnemonic == "lb") ? 0 : (mnemonic == "lh") ? 1 :
-                              (mnemonic == "lw") ? 2 : (mnemonic == "ld") ? 3 : 0;
-            
-            encodedInstruction = encodeIType(mnemonic == "jalr" ? "0x67" : "0x13", rd, rs1, imm, funct3);
+        // Get instruction info
+        InstructionInfo info = instructionTable[mnemonic];
+        
+        // Check if we have the correct number of operands
+        if (tokens.size() - 1 != info.operandCount) {
+            throw runtime_error(mnemonic + " instruction requires " + 
+                              to_string(info.operandCount) + " operands");
         }
         
-        // S-type instructions
-        else if (mnemonic == "sb" || mnemonic == "sw" || mnemonic == "sd" || mnemonic == "sh") {
-            if (tokens.size() != 3) {
-                throw runtime_error(mnemonic + " instruction requires a register and memory address");
+        // Process based on instruction type
+        switch (info.type) {
+            case InstructionInfo::R_TYPE: {
+                uint32_t rd = parseRegister(tokens[1]);
+                uint32_t rs1 = parseRegister(tokens[2]);
+                uint32_t rs2 = parseRegister(tokens[3]);
+                encodedInstruction = encodeRType(info.opcode, rd, rs1, rs2, info.funct3, info.funct7);
+                
+                // Create binary representation for comment
+                string funct7Bin = bitset<7>(info.funct7).to_string();
+                string rs2Bin = bitset<5>(rs2).to_string();
+                string rs1Bin = bitset<5>(rs1).to_string();
+                string funct3Bin = bitset<3>(info.funct3).to_string();
+                string rdBin = bitset<5>(rd).to_string();
+                string opcodeBin = bitset<7>(stoul(info.opcode, nullptr, 16)).to_string();
+                decodedBinary = funct7Bin + "-" + rs2Bin + "-" + rs1Bin + "-" + funct3Bin + "-" + rdBin + "-" + opcodeBin;
+                break;
             }
-            uint32_t rs2 = parseRegister(tokens[1]);
-            int32_t imm = parseImmediate(tokens[2]);
-            uint32_t rs1 = parseRegister(tokens[2].substr(tokens[2].find('(') + 1, tokens[2].find(')') - tokens[2].find('(') - 1));
-            
-            uint32_t funct3 = (mnemonic == "sb") ? 0 : (mnemonic == "sh") ? 1 : 
-                              (mnemonic == "sw") ? 2 : (mnemonic == "sd") ? 3 : 0;
-            
-            encodedInstruction = encodeSType("0x23", rs1, rs2, imm, funct3);
+            case InstructionInfo::I_TYPE: {
+                uint32_t rd = parseRegister(tokens[1]);
+                uint32_t rs1 = 0;
+                int32_t imm = 0;
+                
+                // Handle special case for load instructions
+                if (mnemonic == "lb" || mnemonic == "lh" || mnemonic == "lw" || 
+                    mnemonic == "lbu" || mnemonic == "lhu" || mnemonic == "ld" || mnemonic == "lwu") {
+                    // Parse memory operand of format: imm(rs1)
+                    string memOp = tokens[2];
+                    size_t openParen = memOp.find('(');
+                    size_t closeParen = memOp.find(')');
+                    
+                    if (openParen == string::npos || closeParen == string::npos) {
+                        throw runtime_error("Invalid memory addressing format: " + memOp);
+                    }
+                    
+                    string immStr = memOp.substr(0, openParen);
+                    string rs1Str = memOp.substr(openParen + 1, closeParen - openParen - 1);
+                    
+                    imm = parseImmediate(immStr);
+                    rs1 = parseRegister(rs1Str);
+                } else {
+                    rs1 = parseRegister(tokens[2]);
+                    imm = parseImmediate(tokens[3]);
+                }
+                
+                encodedInstruction = encodeIType(info.opcode, rd, rs1, imm, info.funct3);
+                
+                // Create binary representation for comment
+                string immBin = bitset<12>(imm & 0xFFF).to_string();
+                string rs1Bin = bitset<5>(rs1).to_string();
+                string funct3Bin = bitset<3>(info.funct3).to_string();
+                string rdBin = bitset<5>(rd).to_string();
+                string opcodeBin = bitset<7>(stoul(info.opcode, nullptr, 16)).to_string();
+                decodedBinary = immBin + "-" + rs1Bin + "-" + funct3Bin + "-" + rdBin + "-" + opcodeBin;
+                break;
+            }
+            case InstructionInfo::S_TYPE: {
+                uint32_t rs2 = parseRegister(tokens[1]);
+                
+                // Parse memory operand of format: imm(rs1)
+                string memOp = tokens[2];
+                size_t openParen = memOp.find('(');
+                size_t closeParen = memOp.find(')');
+                
+                if (openParen == string::npos || closeParen == string::npos) {
+                    throw runtime_error("Invalid memory addressing format: " + memOp);
+                }
+                
+                string immStr = memOp.substr(0, openParen);
+                string rs1Str = memOp.substr(openParen + 1, closeParen - openParen - 1);
+                
+                int32_t imm = parseImmediate(immStr);
+                uint32_t rs1 = parseRegister(rs1Str);
+                
+                encodedInstruction = encodeSType(info.opcode, rs1, rs2, imm, info.funct3);
+                
+                // Create binary representation for comment
+                uint32_t imm11_5 = (imm & 0xFE0) >> 5;
+                uint32_t imm4_0 = imm & 0x1F;
+                string imm11_5Bin = bitset<7>(imm11_5).to_string();
+                string rs2Bin = bitset<5>(rs2).to_string();
+                string rs1Bin = bitset<5>(rs1).to_string();
+                string funct3Bin = bitset<3>(info.funct3).to_string();
+                string imm4_0Bin = bitset<5>(imm4_0).to_string();
+                string opcodeBin = bitset<7>(stoul(info.opcode, nullptr, 16)).to_string();
+                decodedBinary = imm11_5Bin + "-" + rs2Bin + "-" + rs1Bin + "-" + funct3Bin + "-" + imm4_0Bin + "-" + opcodeBin;
+                break;
+            }
+            case InstructionInfo::SB_TYPE: {
+                uint32_t rs1 = parseRegister(tokens[1]);
+                uint32_t rs2 = parseRegister(tokens[2]);
+                int32_t imm = parseImmediate(tokens[3], currentAddress, true);
+                encodedInstruction = encodeSBType(info.opcode, rs1, rs2, imm, info.funct3);
+                
+                // Extract bits for creating binary representation
+                imm = imm >> 1; // Already shifted in the encode function
+                uint32_t imm12 = (imm & 0x1000) >> 12;
+                uint32_t imm11 = (imm & 0x800) >> 11;
+                uint32_t imm10_5 = (imm & 0x7E0) >> 5;
+                uint32_t imm4_1 = (imm & 0x1E) >> 1;
+                
+                string imm12_11Bin = bitset<1>(imm12).to_string() + bitset<1>(imm11).to_string();
+                string imm10_5Bin = bitset<6>(imm10_5).to_string();
+                string rs2Bin = bitset<5>(rs2).to_string();
+                string rs1Bin = bitset<5>(rs1).to_string();
+                string funct3Bin = bitset<3>(info.funct3).to_string();
+                string imm4_1_0Bin = bitset<4>(imm4_1).to_string() + "0";
+                string opcodeBin = bitset<7>(stoul(info.opcode, nullptr, 16)).to_string();
+                decodedBinary = imm12_11Bin + "-" + imm10_5Bin + "-" + rs2Bin + "-" + rs1Bin + "-" + funct3Bin + "-" + imm4_1_0Bin + "-" + opcodeBin;
+                break;
+            }
+            case InstructionInfo::U_TYPE: {
+                uint32_t rd = parseRegister(tokens[1]);
+                int32_t imm = parseImmediate(tokens[2]);
+                encodedInstruction = encodeUType(info.opcode, rd, imm);
+                
+                // Create binary representation for comment
+                string immBin = bitset<20>((imm & 0xFFFFF000) >> 12).to_string();
+                string rdBin = bitset<5>(rd).to_string();
+                string opcodeBin = bitset<7>(stoul(info.opcode, nullptr, 16)).to_string();
+                decodedBinary = immBin + "-" + rdBin + "-" + opcodeBin;
+                break;
+            }
+            case InstructionInfo::UJ_TYPE: {
+                uint32_t rd = parseRegister(tokens[1]);
+                int32_t imm = parseImmediate(tokens[2], currentAddress, true);
+                encodedInstruction = encodeUJType(info.opcode, rd, imm);
+                
+                // Extract bits for binary representation
+                imm = imm >> 1;
+                uint32_t imm20 = (imm & 0x100000) >> 20;
+                uint32_t imm19_12 = (imm & 0xFF000) >> 12;
+                uint32_t imm11 = (imm & 0x800) >> 11;
+                uint32_t imm10_1 = (imm & 0x7FE) >> 1;
+                
+                string immBin = bitset<1>(imm20).to_string() + 
+                                bitset<8>(imm19_12).to_string() + 
+                                bitset<1>(imm11).to_string() + 
+                                bitset<10>(imm10_1).to_string();
+                string rdBin = bitset<5>(rd).to_string();
+                string opcodeBin = bitset<7>(stoul(info.opcode, nullptr, 16)).to_string();
+                decodedBinary = immBin + "-" + rdBin + "-" + opcodeBin;
+                break;
+            }
+            default:
+                throw runtime_error("Unsupported instruction type for: " + mnemonic);
         }
         
-        // SB-type (Branch) instructions
-        else if (mnemonic == "beq" || mnemonic == "bne" || mnemonic == "bge" || mnemonic == "blt") {
-            if (tokens.size() != 4) {
-                throw runtime_error(mnemonic + " instruction requires 2 registers and a target");
-            }
-            uint32_t rs1 = parseRegister(tokens[1]);
-            uint32_t rs2 = parseRegister(tokens[2]);
-            int32_t imm = parseImmediate(tokens[3], currentAddress, true);
-            
-            uint32_t funct3 = (mnemonic == "beq") ? 0 : (mnemonic == "bne") ? 1 : 
-                              (mnemonic == "blt") ? 4 : (mnemonic == "bge") ? 5 : 0;
-            
-            encodedInstruction = encodeSBType("0x63", rs1, rs2, imm, funct3);
-        }
-        
-        // U-type instructions
-        else if (mnemonic == "auipc" || mnemonic == "lui") {
-            if (tokens.size() != 3) {
-                throw runtime_error(mnemonic + " instruction requires a register and an immediate");
-            }
-            uint32_t rd = parseRegister(tokens[1]);
-            int32_t imm = parseImmediate(tokens[2]);
-            
-            encodedInstruction = encodeUType(mnemonic == "auipc" ? "0x17" : "0x37", rd, imm);
-        }
-        
-        // UJ-type (Jump) instruction
-        else if (mnemonic == "jal") {
-            if (tokens.size() != 3) {
-                throw runtime_error("jal instruction requires a register and a target");
-            }
-            uint32_t rd = parseRegister(tokens[1]);
-            int32_t imm = parseImmediate(tokens[2], currentAddress, true);
-            
-            encodedInstruction = encodeUJType("0x6F", rd, imm);
-        }
-        
-        else {
-            throw runtime_error("Unsupported instruction: " + mnemonic);
-        }
     } catch (const exception& e) {
         throw runtime_error(string("Error processing instruction: ") + e.what());
     }
     
-    // Return encoded instruction as hexadecimal string
-    return "0x" + to_string_hex(encodedInstruction);
+    // Return encoded instruction as hexadecimal string along with the original instruction and binary decoding
+    return "0x" + to_string_hex(encodedInstruction) + " , " + line + " # " + decodedBinary + "-NULL";
 }
 
+// Process data segment
+void assembleData()
+{
+    vector<string> words;                 // stores tokens of a given command
+    int size;                             // stores size of data element to be added
+    long long address = dataSegmentStart; // Starting address of data
+    long long val;                        // Temporarily stores value from a command
 
+    for (auto code : dataLines)
+    {
+        words = split(code); // split command into individual tokens
+        
+        if (words.empty()) continue;
+
+        if (directivesSizes.find(words[0]) != directivesSizes.end())
+        {
+            size = directivesSizes[words[0]]; // extract size of data to be stored
+            
+            // Ensure proper alignment for multi-byte data
+            if (size > 1) {
+                address = (address + size - 1) & ~(size - 1);
+            }
+        }
+        else // Error handling
+        {
+            cerr << "Error at .data segment" << endl;
+            cerr << "Line : " << code << endl;
+            cerr << "Unknown directive: " << words[0] << endl;
+            exit(-1);
+        }
+
+        if (words[0] == ".asciiz") // for .asciiz
+        {
+            if (words.size() < 2) {
+                cerr << "Error: .asciiz directive requires a string argument" << endl;
+                cerr << "Line: " << code << endl;
+                exit(-1);
+            }
+            
+            string s = words[1];
+            // Remove quotes if present
+            if (s.size() >= 2 && s.front() == '"' && s.back() == '"') {
+                s = s.substr(1, s.size() - 2);
+            }
+
+            for (int i = 0; i < s.length(); i++)
+            {
+                val = s[i]; // get ASCII value
+
+                // Error handling
+                if (val < 0 || val > 255)
+                {
+                    cerr << "Error at .data segment" << endl;
+                    cerr << "Line : " << code << endl;
+                    cerr << "Value out of bounds: " << val << endl;
+                    exit(-1);
+                }
+
+                // Modified output format
+                string output = decToHex(address) + " " + decToHex(val);
+                outputLines.push_back(output);
+                address += size;
+            }
+
+            // Add null terminator for .asciiz
+            outputLines.push_back(decToHex(address) + " " + decToHex(0));
+            address += size;
+        }
+        else // for other directives
+        {
+            if (words.size() < 2) {
+                cerr << "Error: " << words[0] << " directive requires at least one argument" << endl;
+                cerr << "Line: " << code << endl;
+                exit(-1);
+            }
+            
+            for (int i = 1; i < words.size(); i++)
+            {
+                try {
+                    val = stoll(words[i]); // Extracting values
+                } catch (const exception& e) {
+                    cerr << "Error parsing data value: " << words[i] << endl;
+                    cerr << "Line: " << code << endl;
+                    exit(-1);
+                }
+
+                // Error handling for value ranges
+                int64_t min_val = -(static_cast<int64_t>(1) << (size * 8 - 1));
+                int64_t max_val = (static_cast<int64_t>(1) << (size * 8 - 1)) - 1;
+                
+                if (val < min_val || val > max_val)
+                {
+                    cerr << "Error at .data segment" << endl;
+                    cerr << "Line : " << code << endl;
+                    cerr << "Value out of bounds for " << words[0] << ": " << val << endl;
+                    cerr << "Valid range: " << min_val << " to " << max_val << endl;
+                    exit(-1);
+                }
+
+                // Modified output format
+                string output = decToHex(address) + " " + decToHex(val);
+                outputLines.push_back(output);
+                address += size;
+            }
+        }
+    }
+}
+
+// SECOND PASS: Generate Machine Code
+void secondPass(const string &filename)
+{
+    ifstream file(filename);
+    if (!file.is_open()) {
+        throw runtime_error("Failed to open input file: " + filename);
+    }
+    
+    string line;
+    uint32_t currentAddress = codeSegmentStart;
+    string currentSegment = ".text";
+
+    while (getline(file, line))
+    {
+        // Remove comments and skip empty lines
+        line = regex_replace(line, regex(";.*$"), "");
+
+        if (line.empty() || all_of(line.begin(), line.end(), ::isspace))
+            continue;
+            
+        // Handle segment directives
+        if (line.find(".text") != string::npos)
+        {
+            currentSegment = ".text";
+            currentAddress = codeSegmentStart;
+            continue;
+        }
+        if (line.find(".data") != string::npos)
+        {
+            currentSegment = ".data";
+            currentAddress = dataSegmentStart;
+            continue;
+        }
+
+        // Remove labels
+        if (line.find(':') != string::npos)
+        {
+            line = line.substr(line.find(':') + 1);
+            line = regex_replace(line, regex("^\\s+"), "");
+        }
+
+        // Process text segment instructions
+        if (currentSegment == ".text" && !line.empty())
+        {
+            try {
+                string machineCode = processInstruction(line, currentAddress);
+                outputLines.push_back(decToHex(currentAddress) + " " + machineCode);
+                currentAddress += 4;
+            } catch (const exception& e) {
+                cerr << "Error at address " << decToHex(currentAddress) << ": " << e.what() << endl;
+                cerr << "Line: " << line << endl;
+                exit(-1);
+            }
+        }
+    }
+
+   
+    // Add termination code after text segment
+    outputLines.push_back(decToHex(currentAddress));
+    // Process data segment after code segment
+    assembleData();
+}
     // Helper function to convert integer to hexadecimal string
     string to_string_hex(uint32_t value)
     {
@@ -466,112 +739,8 @@ private:
     }
 
     // Process data segment
-    void assembleData()
-    {
-        vector<string> words;                 // stores tokens of a given command
-        int size;                             // stores size of data element to be added
-        long long address = dataSegmentStart; // Starting address of data
-        long long val;                        // Temporarily stores value from a command
-
-        for (auto code : dataLines)
-        {
-            words = split(code); // split command into individual tokens
-            
-            if (words.empty()) continue;
-
-            if (directivesSizes.find(words[0]) != directivesSizes.end())
-            {
-                size = directivesSizes[words[0]]; // extract size of data to be stored
-                
-                // Ensure proper alignment for multi-byte data
-                if (size > 1) {
-                    address = (address + size - 1) & ~(size - 1);
-                }
-            }
-            else // Error handling
-            {
-                cerr << "Error at .data segment" << endl;
-                cerr << "Line : " << code << endl;
-                cerr << "Unknown directive: " << words[0] << endl;
-                exit(-1);
-            }
-
-            if (words[0] == ".asciiz") // for .asciiz
-            {
-                if (words.size() < 2) {
-                    cerr << "Error: .asciiz directive requires a string argument" << endl;
-                    cerr << "Line: " << code << endl;
-                    exit(-1);
-                }
-                
-                string s = words[1];
-                // Remove quotes if present
-                if (s.size() >= 2 && s.front() == '"' && s.back() == '"') {
-                    s = s.substr(1, s.size() - 2);
-                }
-
-                for (int i = 0; i < s.length(); i++)
-                {
-                    val = s[i]; // get ASCII value
-
-                    // Error handling
-                    if (val < 0 || val > 255)
-                    {
-                        cerr << "Error at .data segment" << endl;
-                        cerr << "Line : " << code << endl;
-                        cerr << "Value out of bounds: " << val << endl;
-                        exit(-1);
-                    }
-
-                    string output = decToHex(address) + " " + decToHex(val); // building final output
-                    outputLines.push_back(output);                           // adding output
-                    address += size;                                         // updating data Address
-                }
-
-                // Add null terminator for .asciiz
-                outputLines.push_back(decToHex(address) + " " + decToHex(0));
-                address += size;
-            }
-            else // for other directives
-            {
-                if (words.size() < 2) {
-                    cerr << "Error: " << words[0] << " directive requires at least one argument" << endl;
-                    cerr << "Line: " << code << endl;
-                    exit(-1);
-                }
-                
-                for (int i = 1; i < words.size(); i++)
-                {
-                    try {
-                        val = stoll(words[i]); // Extracting values
-                    } catch (const exception& e) {
-                        cerr << "Error parsing data value: " << words[i] << endl;
-                        cerr << "Line: " << code << endl;
-                        exit(-1);
-                    }
-
-                    // Error handling for value ranges
-                    int64_t min_val = -(static_cast<int64_t>(1) << (size * 8 - 1));
-                    int64_t max_val = (static_cast<int64_t>(1) << (size * 8 - 1)) - 1;
-                    
-                    if (val < min_val || val > max_val)
-                    {
-                        cerr << "Error at .data segment" << endl;
-                        cerr << "Line : " << code << endl;
-                        cerr << "Value out of bounds for " << words[0] << ": " << val << endl;
-                        cerr << "Valid range: " << min_val << " to " << max_val << endl;
-                        exit(-1);
-                    }
-
-                    string output = decToHex(address) + " " + decToHex(val); // building final output
-                    outputLines.push_back(output);                           // adding output
-                    address += size;                                         // updating data Address
-                }
-            }
-        }
-    }
-
-    // Initialize the directives sizes map
+    // Process data segment
+ // Initialize the directives sizes map
     void initDirectivesSizes()
     {
         directivesSizes[".byte"] = 1;   // 1 byte
@@ -586,6 +755,7 @@ public:
     RISCVAssembler()
     {
         initDirectivesSizes();
+        initInstructionTable();
     }
 
     // Main assembler method

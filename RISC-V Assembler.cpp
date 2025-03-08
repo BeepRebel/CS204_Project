@@ -343,170 +343,119 @@ private:
         assembleData();
     }
 
-    // Process instruction implementation
     string processInstruction(const string& line, uint32_t currentAddress)
-    {
-        vector<string> tokens = split(line);
-        if (tokens.empty()) {
-            throw runtime_error("Empty instruction");
-        }
-        
-        string mnemonic = tokens[0];
-        uint32_t encodedInstruction = 0;
-        
-        try {
-            // R-type instructions
-            if (mnemonic == "add") {
-                if (tokens.size() != 4) {
-                    throw runtime_error("add instruction requires 3 register operands");
-                }
-                uint32_t rd = parseRegister(tokens[1]);
-                uint32_t rs1 = parseRegister(tokens[2]);
-                uint32_t rs2 = parseRegister(tokens[3]);
-                encodedInstruction = encodeRType("0x33", rd, rs1, rs2, 0, 0);
-            }
-            else if (mnemonic == "sub") {
-                if (tokens.size() != 4) {
-                    throw runtime_error("sub instruction requires 3 register operands");
-                }
-                uint32_t rd = parseRegister(tokens[1]);
-                uint32_t rs1 = parseRegister(tokens[2]);
-                uint32_t rs2 = parseRegister(tokens[3]);
-                encodedInstruction = encodeRType("0x33", rd, rs1, rs2, 0, 0x20);
-            }
-            else if (mnemonic == "sll") {
-                if (tokens.size() != 4) {
-                    throw runtime_error("sll instruction requires 3 register operands");
-                }
-                uint32_t rd = parseRegister(tokens[1]);
-                uint32_t rs1 = parseRegister(tokens[2]);
-                uint32_t rs2 = parseRegister(tokens[3]);
-                encodedInstruction = encodeRType("0x33", rd, rs1, rs2, 1, 0);
-            }
-            // Add more R-type instructions here
-            
-            // I-type instructions
-            else if (mnemonic == "addi") {
-                if (tokens.size() != 4) {
-                    throw runtime_error("addi instruction requires 2 registers and an immediate");
-                }
-                uint32_t rd = parseRegister(tokens[1]);
-                uint32_t rs1 = parseRegister(tokens[2]);
-                int32_t imm = parseImmediate(tokens[3]);
-                encodedInstruction = encodeIType("0x13", rd, rs1, imm, 0);
-            }
-            else if (mnemonic == "lw") {
-                if (tokens.size() != 3) {
-                    throw runtime_error("lw instruction requires 2 operands: register and memory address");
-                }
-                uint32_t rd = parseRegister(tokens[1]);
-                
-                // Parse memory operand of format: imm(rs1)
-                string memOp = tokens[2];
-                size_t openParen = memOp.find('(');
-                size_t closeParen = memOp.find(')');
-                
-                if (openParen == string::npos || closeParen == string::npos) {
-                    throw runtime_error("Invalid memory addressing format: " + memOp);
-                }
-                
-                string immStr = memOp.substr(0, openParen);
-                string rs1Str = memOp.substr(openParen + 1, closeParen - openParen - 1);
-                
-                int32_t imm = parseImmediate(immStr);
-                uint32_t rs1 = parseRegister(rs1Str);
-                
-                encodedInstruction = encodeIType("0x03", rd, rs1, imm, 2); // 2 for lw funct3
-            }
-            // Add more I-type instructions here
-            
-            // S-type instructions
-            else if (mnemonic == "sw") {
-                if (tokens.size() != 3) {
-                    throw runtime_error("sw instruction requires 2 operands: register and memory address");
-                }
-                uint32_t rs2 = parseRegister(tokens[1]);
-                
-                // Parse memory operand of format: imm(rs1)
-                string memOp = tokens[2];
-                size_t openParen = memOp.find('(');
-                size_t closeParen = memOp.find(')');
-                
-                if (openParen == string::npos || closeParen == string::npos) {
-                    throw runtime_error("Invalid memory addressing format: " + memOp);
-                }
-                
-                string immStr = memOp.substr(0, openParen);
-                string rs1Str = memOp.substr(openParen + 1, closeParen - openParen - 1);
-                
-                int32_t imm = parseImmediate(immStr);
-                uint32_t rs1 = parseRegister(rs1Str);
-                
-                encodedInstruction = encodeSType("0x23", rs1, rs2, imm, 2); // 2 for sw funct3
-            }
-            // Add more S-type instructions here
-            
-            // SB-type instructions (branches)
-            else if (mnemonic == "beq") {
-                if (tokens.size() != 4) {
-                    throw runtime_error("beq instruction requires 3 operands: two registers and a target");
-                }
-                uint32_t rs1 = parseRegister(tokens[1]);
-                uint32_t rs2 = parseRegister(tokens[2]);
-                int32_t imm = parseImmediate(tokens[3], currentAddress, true);
-                encodedInstruction = encodeSBType("0x63", rs1, rs2, imm, 0); // 0 for beq funct3
-            }
-            else if (mnemonic == "bne") {
-                if (tokens.size() != 4) {
-                    throw runtime_error("bne instruction requires 3 operands: two registers and a target");
-                }
-                uint32_t rs1 = parseRegister(tokens[1]);
-                uint32_t rs2 = parseRegister(tokens[2]);
-                int32_t imm = parseImmediate(tokens[3], currentAddress, true);
-                encodedInstruction = encodeSBType("0x63", rs1, rs2, imm, 1); // 1 for bne funct3
-            }
-            // Add more SB-type instructions here
-            
-            // U-type instructions
-            else if (mnemonic == "lui") {
-                if (tokens.size() != 3) {
-                    throw runtime_error("lui instruction requires 2 operands: register and immediate");
-                }
-                uint32_t rd = parseRegister(tokens[1]);
-                int32_t imm = parseImmediate(tokens[2]);
-                encodedInstruction = encodeUType("0x37", rd, imm);
-            }
-            else if (mnemonic == "auipc") {
-                if (tokens.size() != 3) {
-                    throw runtime_error("auipc instruction requires 2 operands: register and immediate");
-                }
-                uint32_t rd = parseRegister(tokens[1]);
-                int32_t imm = parseImmediate(tokens[2]);
-                encodedInstruction = encodeUType("0x17", rd, imm);
-            }
-            // Add more U-type instructions here
-            
-            // UJ-type instructions
-            else if (mnemonic == "jal") {
-                if (tokens.size() != 3) {
-                    throw runtime_error("jal instruction requires 2 operands: register and target");
-                }
-                uint32_t rd = parseRegister(tokens[1]);
-                int32_t imm = parseImmediate(tokens[2], currentAddress, true);
-                encodedInstruction = encodeUJType("0x6F", rd, imm);
-            }
-            // Add more UJ-type instructions here
-            
-            else {
-                throw runtime_error("Unsupported instruction: " + mnemonic);
-            }
-        } catch (const exception& e) {
-            throw runtime_error(string("Error processing instruction: ") + e.what());
-        }
-        
-        // Return encoded instruction as hexadecimal string
-        return "0x" + to_string_hex(encodedInstruction);
+{
+    vector<string> tokens = split(line);
+    if (tokens.empty()) {
+        throw runtime_error("Empty instruction");
     }
+    
+    string mnemonic = tokens[0];
+    uint32_t encodedInstruction = 0;
+    
+    try {
+        // R-type instructions
+        if (mnemonic == "add" || mnemonic == "and" || mnemonic == "or" || mnemonic == "sll" || 
+            mnemonic == "slt" || mnemonic == "sra" || mnemonic == "srl" || mnemonic == "sub" || 
+            mnemonic == "xor" || mnemonic == "mul" || mnemonic == "div" || mnemonic == "rem") {
+            if (tokens.size() != 4) {
+                throw runtime_error(mnemonic + " instruction requires 3 register operands");
+            }
+            uint32_t rd = parseRegister(tokens[1]);
+            uint32_t rs1 = parseRegister(tokens[2]);
+            uint32_t rs2 = parseRegister(tokens[3]);
+            
+            uint32_t funct3 = (mnemonic == "sll") ? 1 : (mnemonic == "slt") ? 2 : (mnemonic == "xor") ? 4 :
+                              (mnemonic == "srl" || mnemonic == "sra") ? 5 : (mnemonic == "or") ? 6 :
+                              (mnemonic == "and") ? 7 : 0;
+            
+            uint32_t funct7 = (mnemonic == "sub" || mnemonic == "sra") ? 0x20 : 
+                              (mnemonic == "mul") ? 0x01 : (mnemonic == "div") ? 0x01 : 
+                              (mnemonic == "rem") ? 0x01 : 0;
+            
+            encodedInstruction = encodeRType("0x33", rd, rs1, rs2, funct3, funct7);
+        }
+        
+        // I-type instructions
+        else if (mnemonic == "addi" || mnemonic == "andi" || mnemonic == "ori" || 
+                 mnemonic == "lb" || mnemonic == "ld" || mnemonic == "lh" || mnemonic == "lw" || mnemonic == "jalr") {
+            if (tokens.size() != 4) {
+                throw runtime_error(mnemonic + " instruction requires 2 registers and an immediate");
+            }
+            uint32_t rd = parseRegister(tokens[1]);
+            uint32_t rs1 = parseRegister(tokens[2]);
+            int32_t imm = parseImmediate(tokens[3]);
+            
+            uint32_t funct3 = (mnemonic == "andi") ? 7 : (mnemonic == "ori") ? 6 : 
+                              (mnemonic == "lb") ? 0 : (mnemonic == "lh") ? 1 :
+                              (mnemonic == "lw") ? 2 : (mnemonic == "ld") ? 3 : 0;
+            
+            encodedInstruction = encodeIType(mnemonic == "jalr" ? "0x67" : "0x13", rd, rs1, imm, funct3);
+        }
+        
+        // S-type instructions
+        else if (mnemonic == "sb" || mnemonic == "sw" || mnemonic == "sd" || mnemonic == "sh") {
+            if (tokens.size() != 3) {
+                throw runtime_error(mnemonic + " instruction requires a register and memory address");
+            }
+            uint32_t rs2 = parseRegister(tokens[1]);
+            int32_t imm = parseImmediate(tokens[2]);
+            uint32_t rs1 = parseRegister(tokens[2].substr(tokens[2].find('(') + 1, tokens[2].find(')') - tokens[2].find('(') - 1));
+            
+            uint32_t funct3 = (mnemonic == "sb") ? 0 : (mnemonic == "sh") ? 1 : 
+                              (mnemonic == "sw") ? 2 : (mnemonic == "sd") ? 3 : 0;
+            
+            encodedInstruction = encodeSType("0x23", rs1, rs2, imm, funct3);
+        }
+        
+        // SB-type (Branch) instructions
+        else if (mnemonic == "beq" || mnemonic == "bne" || mnemonic == "bge" || mnemonic == "blt") {
+            if (tokens.size() != 4) {
+                throw runtime_error(mnemonic + " instruction requires 2 registers and a target");
+            }
+            uint32_t rs1 = parseRegister(tokens[1]);
+            uint32_t rs2 = parseRegister(tokens[2]);
+            int32_t imm = parseImmediate(tokens[3], currentAddress, true);
+            
+            uint32_t funct3 = (mnemonic == "beq") ? 0 : (mnemonic == "bne") ? 1 : 
+                              (mnemonic == "blt") ? 4 : (mnemonic == "bge") ? 5 : 0;
+            
+            encodedInstruction = encodeSBType("0x63", rs1, rs2, imm, funct3);
+        }
+        
+        // U-type instructions
+        else if (mnemonic == "auipc" || mnemonic == "lui") {
+            if (tokens.size() != 3) {
+                throw runtime_error(mnemonic + " instruction requires a register and an immediate");
+            }
+            uint32_t rd = parseRegister(tokens[1]);
+            int32_t imm = parseImmediate(tokens[2]);
+            
+            encodedInstruction = encodeUType(mnemonic == "auipc" ? "0x17" : "0x37", rd, imm);
+        }
+        
+        // UJ-type (Jump) instruction
+        else if (mnemonic == "jal") {
+            if (tokens.size() != 3) {
+                throw runtime_error("jal instruction requires a register and a target");
+            }
+            uint32_t rd = parseRegister(tokens[1]);
+            int32_t imm = parseImmediate(tokens[2], currentAddress, true);
+            
+            encodedInstruction = encodeUJType("0x6F", rd, imm);
+        }
+        
+        else {
+            throw runtime_error("Unsupported instruction: " + mnemonic);
+        }
+    } catch (const exception& e) {
+        throw runtime_error(string("Error processing instruction: ") + e.what());
+    }
+    
+    // Return encoded instruction as hexadecimal string
+    return "0x" + to_string_hex(encodedInstruction);
+}
+
 
     // Helper function to convert integer to hexadecimal string
     string to_string_hex(uint32_t value)

@@ -284,12 +284,14 @@ private:
 
         while (getline(file, line))
         {
-            // Remove comments
-            line = regex_replace(line, regex(";.*$"), "");
+            line = regex_replace(line, regex("[;#].*$"), "");
 
-            // Skip empty lines
-            if (line.empty() || all_of(line.begin(), line.end(), ::isspace))
+            // Skip empty lines and lines that contain only comments (whitespace followed by #)
+            if (line.empty() || all_of(line.begin(), line.end(), ::isspace) || 
+                line.find_first_not_of(" \t") == line.find('#')) {
                 continue;
+            }
+
 
             // Handle segment directives
             if (line.find(".text") != string::npos)
@@ -398,7 +400,7 @@ string processInstruction(const string& line, uint32_t currentAddress)
                 string funct3Bin = bitset<3>(info.funct3).to_string();
                 string rdBin = bitset<5>(rd).to_string();
                 string opcodeBin = bitset<7>(stoul(info.opcode, nullptr, 16)).to_string();
-                decodedBinary = opcodeBin + "-" + funct3Bin + "-" + funct7Bin + "-" + rdBin + "-" + rs1Bin + "-" + rs2Bin + "NULL";
+                decodedBinary = opcodeBin + "-" + funct3Bin + "-" + funct7Bin + "-" + rdBin + "-" + rs1Bin + "-" + rs2Bin + "-" + "NULL";
                 break;
             }
             case InstructionInfo::I_TYPE: {
@@ -436,7 +438,7 @@ string processInstruction(const string& line, uint32_t currentAddress)
                 string funct3Bin = bitset<3>(info.funct3).to_string();
                 string rdBin = bitset<5>(rd).to_string();
                 string opcodeBin = bitset<7>(stoul(info.opcode, nullptr, 16)).to_string();
-                decodedBinary = opcodeBin + "-" + funct3Bin + "-" + "NULL" + "-" + rdBin + "-" + rs1Bin + "-" + "NULL" + immBin;
+                decodedBinary = opcodeBin + "-" + funct3Bin + "-" + "NULL" + "-" + rdBin + "-" + rs1Bin + "-" + "NULL" + "-" + immBin;
                 break;
             }
             case InstructionInfo::S_TYPE: {
@@ -468,7 +470,7 @@ string processInstruction(const string& line, uint32_t currentAddress)
                 string funct3Bin = bitset<3>(info.funct3).to_string();
                 string imm4_0Bin = bitset<5>(imm4_0).to_string();
                 string opcodeBin = bitset<7>(stoul(info.opcode, nullptr, 16)).to_string();
-                decodedBinary = opcodeBin + "-" + funct3Bin + "-" + "NULL" + "NULL" + rs1Bin + "-" + rs2Bin + imm11_5Bin + "-" + imm4_0Bin;
+                decodedBinary = opcodeBin + "-" + funct3Bin + "-" + "NULL" + "-" + "NULL" + "-" + rs1Bin + "-" + rs2Bin + "-" + imm11_5Bin + "-" + imm4_0Bin;
                 break;
             }
             case InstructionInfo::SB_TYPE: {
@@ -491,7 +493,7 @@ string processInstruction(const string& line, uint32_t currentAddress)
                 string funct3Bin = bitset<3>(info.funct3).to_string();
                 string imm4_1_0Bin = bitset<4>(imm4_1).to_string() + "0";
                 string opcodeBin = bitset<7>(stoul(info.opcode, nullptr, 16)).to_string();
-                decodedBinary = opcodeBin + "-" + funct3Bin + "-" + "NULL" + "-" + "NULL" + "-" + rs1Bin + "-" + rs2Bin + "NULL" + imm12_11Bin + "-" + imm10_5Bin + "-" + imm4_1_0Bin;
+                decodedBinary = opcodeBin + "-" + funct3Bin + "-" + "NULL" + "-" + "NULL" + "-" + rs1Bin + "-" + rs2Bin + "-" + "NULL" + "-" + imm12_11Bin + "-" + imm10_5Bin + "-" + imm4_1_0Bin;
                 break;
             }
             case InstructionInfo::U_TYPE: {
@@ -499,12 +501,11 @@ string processInstruction(const string& line, uint32_t currentAddress)
                 int32_t imm = parseImmediate(tokens[2]);
                 encodedInstruction = encodeUType(info.opcode, rd, imm);
                 
-                // Create binary representation for comment
                 string immBin = bitset<20>((imm & 0xFFFFF000) >> 12).to_string();
                 string rdBin = bitset<5>(rd).to_string();
                 string opcodeBin = bitset<7>(stoul(info.opcode, nullptr, 16)).to_string();
                 
-                decodedBinary = opcodeBin + "-" + "NULL" + "-" + "NULL" + "NULL" + "NULL" + "-" + "NULL" + immBin;
+                decodedBinary = opcodeBin + "-" + "NULL" + "-" + "NULL" + "-" +  rdBin + "-" + "NULL" + "-" + "NULL" + "-" + immBin;
                 break;
             }
             case InstructionInfo::UJ_TYPE: {
@@ -525,7 +526,7 @@ string processInstruction(const string& line, uint32_t currentAddress)
                                 bitset<10>(imm10_1).to_string();
                 string rdBin = bitset<5>(rd).to_string();
                 string opcodeBin = bitset<7>(stoul(info.opcode, nullptr, 16)).to_string();
-                decodedBinary = opcodeBin + "-" + "NULL" + "-" + "NULL" + "NULL" + "NULL" + "-" + "NULL" + immBin;
+                decodedBinary = opcodeBin + "-" + "NULL" + "-" + "NULL" + "-" + "NULL" + "-" + "NULL" + "-" + "NULL" + "-" + immBin;
                 break;
             }
             default:
@@ -537,7 +538,7 @@ string processInstruction(const string& line, uint32_t currentAddress)
     }
     
     // Return encoded instruction as hexadecimal string along with the original instruction and binary decoding
-    return "0x" + to_string_hex(encodedInstruction) + " , " + line + " # " + decodedBinary + "-NULL";
+    return "0x" + to_string_hex(encodedInstruction) + " , " + line + " # " + decodedBinary;
 }
 
 // Process data segment
@@ -558,10 +559,6 @@ void assembleData()
         {
             size = directivesSizes[words[0]]; // extract size of data to be stored
             
-            // Ensure proper alignment for multi-byte data
-            if (size > 1) {
-                address = (address + size - 1) & ~(size - 1);
-            }
         }
         else // Error handling
         {
@@ -663,7 +660,7 @@ void secondPass(const string &filename)
     while (getline(file, line))
     {
         // Remove comments and skip empty lines
-        line = regex_replace(line, regex(";.*$"), "");
+        line = regex_replace(line, regex("[;#].*$"), "");
 
         if (line.empty() || all_of(line.begin(), line.end(), ::isspace))
             continue;
@@ -718,8 +715,6 @@ void secondPass(const string &filename)
         return ss.str();
     }
 
-    // Process data segment
-    // Process data segment
 
 public:
     // Constructor

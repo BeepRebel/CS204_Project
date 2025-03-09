@@ -1,6 +1,6 @@
 #include <bits/stdc++.h>
 using namespace std;
-// First, define a structure to hold instruction information
+//A structure to hold instruction information
 struct InstructionInfo {
     enum InstructionType {
         R_TYPE,
@@ -48,13 +48,13 @@ void initInstructionTable() {
     instructionTable["lw"] = {InstructionInfo::I_TYPE, "0x03", 2, 0, 2};
     instructionTable["jalr"] = {InstructionInfo::I_TYPE, "0x67", 0, 0, 3};
 
-    // S-type instructions (Store)
+    // S-type instructions 
     instructionTable["sb"] = {InstructionInfo::S_TYPE, "0x23", 0, 0, 2};
     instructionTable["sh"] = {InstructionInfo::S_TYPE, "0x23", 1, 0, 2};
     instructionTable["sw"] = {InstructionInfo::S_TYPE, "0x23", 2, 0, 2};
     instructionTable["sd"] = {InstructionInfo::S_TYPE, "0x23", 3, 0, 2};
     
-    // SB-type instructions (branches)
+    // SB-type instructions
     instructionTable["beq"] = {InstructionInfo::SB_TYPE, "0x63", 0, 0, 3};
     instructionTable["bne"] = {InstructionInfo::SB_TYPE, "0x63", 1, 0, 3};
     instructionTable["blt"] = {InstructionInfo::SB_TYPE, "0x63", 4, 0, 3};
@@ -84,41 +84,42 @@ private:
     // Symbol Table: Stores label names and their corresponding memory addresses
     unordered_map<string, uint32_t> symbolTable;
     
-    // Track which segment each label belongs to
+    // Tracks whether a label belongs to the code or data segment
     unordered_map<string, string> labelSegment;
 
-    // Memory Segment Definitions
-    uint32_t codeSegmentStart = 0x00000000; // Start of executable code
-    uint32_t dataSegmentStart = 0x10000000; // Start of data segment (0x10000000 = 268435456)
+    // Memory Segment Start Addresses
+    uint32_t codeSegmentStart = 0x00000000; // Base address for the code (text) segment 
+    uint32_t dataSegmentStart = 0x10000000; // Base address for the data segment (0x10000000 = 268435456) 
 
-    // Stores the generated instructions with their addresses
+    // Stores the generated instructions with their memory addresses
     vector<pair<string, string>> instructions;
 
-    // Stores data segment information
+    // Stores data segment information with their memory addresses
     vector<pair<string, string>> dataSegment;
 
-    // Store raw data lines for processing
+    // Store unprocessed data lines for parsing 
     vector<string> dataLines;
 
-    // Store output lines (combined code and data)
+    // Combines both code and data segments for output generation
     vector<string> outputLines;
 
-    // Converts register name (e.g., "x1") to register number
+    // Converts register name to register number
     uint32_t parseRegister(const string &reg)
     {
+        // Check the register name starts with 'x'
         if (reg[0] != 'x')
             throw runtime_error("Invalid register format: " + reg);
         
         int regNum = stoi(reg.substr(1)); // Extract number after 'x'
         
-        // Check if register number is valid (0-31 for RISC-V)
+        // Check if register is valid 
         if (regNum < 0 || regNum > 31)
             throw runtime_error("Invalid register number: " + reg);
             
-        return regNum;
+        return regNum; // Return as an unsigned 32-bit integer  
     }
 
-    // Parses immediate values
+    // Parses immediate values (constant or label reference) 
     int32_t parseImmediate(const string &imm, uint32_t currentAddress = 0, bool isPCRelative = false)
     {
         // Check if the immediate is a previously defined label
@@ -130,13 +131,13 @@ private:
             {
                 return targetAddress - currentAddress;
             }
-            return targetAddress;
+            return targetAddress; // Return the absolute address for non-PC-relative cases
         }
 
         // Check for hexadecimal number
         if (imm.substr(0, 2) == "0x")
         {
-            return stoi(imm, nullptr, 16);
+            return stoi(imm, nullptr, 16); // Convert hex string to integer
         }
 
         // Parse as decimal number
@@ -144,6 +145,8 @@ private:
     }
 
     // Encoding functions for different RISC-V instruction formats
+
+    //R format - add, and, or, sll, slt, sra, srl, sub, xor, mul, div, rem
     uint32_t encodeRType(const string &opcode, uint32_t rd, uint32_t rs1,
                          uint32_t rs2, uint32_t funct3, uint32_t funct7)
     {
@@ -155,6 +158,7 @@ private:
                | stoul(opcode, nullptr, 16); // Opcode (bottom 7 bits)
     }
 
+    //I format - addi, andi, ori, lb, ld, lh, lw, jalr
     uint32_t encodeIType(const string &opcode, uint32_t rd, uint32_t rs1,
                          int32_t imm, uint32_t funct3)
     {
@@ -168,6 +172,7 @@ private:
                | stoul(opcode, nullptr, 16); // Opcode (bottom 7 bits)
     }
 
+    //S format - sb, sw, sd, sh
     uint32_t encodeSType(const string &opcode, uint32_t rs1, uint32_t rs2,
                          int32_t imm, uint32_t funct3)
     {
@@ -184,7 +189,7 @@ private:
                | stoul(opcode, nullptr, 16); // Opcode (bottom 7 bits)
     }
 
-    // SB-Type instructions (branches)
+    //SB format - beq, bne, bge, blt
     uint32_t encodeSBType(const string &opcode, uint32_t rs1, uint32_t rs2,
                           int32_t imm, uint32_t funct3)
     {
@@ -212,7 +217,7 @@ private:
                | stoul(opcode, nullptr, 16); // Opcode (bottom 7 bits)
     }
     
-    // U-Type instructions (lui, auipc)
+    //U format - auipc, lui
     uint32_t encodeUType(const string &opcode, uint32_t rd, int32_t imm)
     {
         // U-type uses the upper 20 bits of immediate
@@ -223,7 +228,7 @@ private:
                | stoul(opcode, nullptr, 16); // Opcode (bottom 7 bits)
     }
     
-    // UJ-Type instructions (jal)
+    //UJ format - jal
     uint32_t encodeUJType(const string &opcode, uint32_t rd, int32_t imm)
     {
         // Check that jump target is 2-byte aligned
@@ -247,7 +252,7 @@ private:
                | stoul(opcode, nullptr, 16); // Opcode (bottom 7 bits)
     }
 
-    // Split a string into tokens
+    // Splits a given string into individual tokens based on whitespace  
     vector<string> split(const string &line)
     {
         vector<string> tokens;
@@ -259,7 +264,7 @@ private:
             tokens.push_back(token);
         }
 
-        return tokens;
+        return tokens; // Return the list of extracted tokens 
     }
 
     // Convert decimal to hexadecimal string representation
@@ -270,7 +275,9 @@ private:
         return ss.str();
     }
 
-    // FIRST PASS: Collect Symbol Table
+    // FIRST PASS: Collects the symbol table and categorizes labels into segments  
+    // This pass scans the assembly file to identify labels and their corresponding memory addresses  
+
     void firstPass(const string &filename)
     {
         ifstream file(filename);
@@ -279,11 +286,12 @@ private:
         }
         
         string line;
-        uint32_t currentAddress = codeSegmentStart;
-        string currentSegment = ".text";
+        uint32_t currentAddress = codeSegmentStart; // Tracks current address in memory
+        string currentSegment = ".text"; // Tracks whether we are in the code (.text) or data (.data) segment  
 
         while (getline(file, line))
         {
+            // Remove comments (anything after ';' or '#') 
             line = regex_replace(line, regex("[;#].*$"), "");
 
             // Skip empty lines and lines that contain only comments (whitespace followed by #)
@@ -297,13 +305,13 @@ private:
             if (line.find(".text") != string::npos)
             {
                 currentSegment = ".text";
-                currentAddress = codeSegmentStart;
+                currentAddress = codeSegmentStart; // Reset address to code segment base  
                 continue;
             }
             if (line.find(".data") != string::npos)
             {
                 currentSegment = ".data";
-                currentAddress = dataSegmentStart;
+                currentAddress = dataSegmentStart; // Reset address to data segment base 
                 continue;
             }
 
@@ -319,13 +327,13 @@ private:
                 line = regex_replace(line, regex("^\\s+"), "");
             }
 
-            // Store data lines for second pass
+            // Store data lines for second pass if in the .data segment
             if (currentSegment == ".data" && !line.empty())
             {
                 dataLines.push_back(line);
                 // Data address increment will be calculated in the assembleData function
                 
-                // Calculate address increment for data directives
+                // Parse directive size to calculate memory increments  
                 vector<string> tokens = split(line);
                 if (!tokens.empty() && directivesSizes.find(tokens[0]) != directivesSizes.end())
                 {
@@ -357,7 +365,7 @@ private:
         }
     }
 
-    // SECOND PASS: Generate Machine Code
+
 // Process instruction implementation
 string processInstruction(const string& line, uint32_t currentAddress)
 {
@@ -755,8 +763,11 @@ public:
 
 int main()
 {
-
+    // Create an instance of the RISC-V assembler 
     RISCVAssembler assembler;
+
+    // Assemble the input assembly file ("input.asm")  
+    // and generate the corresponding machine code in "output.mc"
     assembler.assemble("input.asm", "output.mc");
 
     return 0;

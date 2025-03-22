@@ -218,7 +218,7 @@ void run_RISCVsim()
 
         clock_cycles++;
 
-        cout << "CLOCK CYCLE: " << clock_cycles << endl
+        cout << "Clock Cycle: " << clock_cycles << endl
              << endl;
     }
 }
@@ -231,7 +231,7 @@ void load_program_memory(const string &file_name)
     // check if the file is open, otherwise print an error and exit
     if (!infile)
     {
-        cerr << "ERROR: error opening input file" << endl;
+        cerr << "ERROR: cannot open input file" << endl;
         exit(1);
     }
 
@@ -250,10 +250,10 @@ void load_program_memory(const string &file_name)
 void write_data_memory()
 {
     // write data memory to data_out.mc
-    ofstream data_out("data_out.mc");
+    ofstream data_out("memory.mc");
     if (!data_out.is_open())
     {
-        cout << "ERROR: Error opening data_out.mc file for writing" << endl;
+        cout << "ERROR: Error opening memory file" << endl;
         return;
     }
 
@@ -276,20 +276,19 @@ void write_data_memory()
     data_out.close();
 
     // write register contents to reg_out.mc
-    ofstream reg_out("reg_out.mc");
-    if (!reg_out.is_open())
-    {
-        cout << "ERROR: Error opening reg_out.mc file for writing" << endl;
+    ofstream reg_out("registerFile.mc");
+    if (!reg_out.is_open()){
+        cout << "ERROR: Error opening registerFile" << endl;
         return;
     }
 
     // iterate through all 32 registers and write their values
     for (int i = 0; i < 32; i++)
     {
-        reg_out << "x" << dec << i << " " << X[i] << endl;
+        string reg_value = X[i];
+        reg_value = reg_value.substr(0, 2) + string(10 - reg_value.length(), '0') + reg_value.substr(2);    
+        reg_out << "x" << dec << i << " " << reg_value << endl;
     }
-
-    reg_out.close();
 }
 
 // Fetch stage: Read instruction from memory
@@ -312,7 +311,7 @@ void fetch()
     }
 
     // print fetched instruction and its address
-    cout << "FETCH: Fetch instruction " << instruction_word << " from address " << nhex(PC) << endl;
+    cout << "FETCH: Retrieved instruction " << instruction_word << " at memory location 0x" << nhex(PC) << endl;
 
     // reset pc increment and selection signals
     inc_select = 0;
@@ -325,7 +324,7 @@ void decode()
     // instruction to end the simulation
     if (instruction_word == "0x00000000")
     {
-        cout << "END SIMULATION" << endl
+        cout << "Finished Simulation" << endl
              << endl;
         swi_exit();
         return;
@@ -391,12 +390,12 @@ void decode()
         }
         
         if (!found) {
-            cout << "ERROR: Unidentifiable machine code (valid opcode but invalid func3/func7)!" << endl;
+            cout << "ERROR: Invalid machine code" << endl;
             swi_exit();
             return;
         }
     } else {
-        cout << "ERROR: Unidentifiable machine code (invalid opcode)!" << endl;
+        cout << "ERROR: Invalid machine code" << endl;
         swi_exit();
         return;
     }
@@ -414,12 +413,13 @@ void decode()
         operand2 = X[stoi(rs2, nullptr, 2)];
         write_back_signal = true;
 
-        cout << "DECODE: Operation is " << operation << ", first operand is X"
-             << stoi(rs1, nullptr, 2) << ", second operand is X" << stoi(rs2, nullptr, 2)
-             << ", destination register is X" << stoi(rd, nullptr, 2) << endl;
+        cout << "DECODE: Identified " << operation << " operation | Source: X" 
+        << stoi(rs1, nullptr, 2) << " (0x" << hex << operand1 << dec << "), X" 
+        << stoi(rs2, nullptr, 2) << " (0x" << hex << operand2 << dec << ") | Destination Register: X" 
+        << stoi(rd, nullptr, 2) << endl;
 
-        cout << "DECODE: Read registers: X" << stoi(rs1, nullptr, 2) << " = "
-             << nint(operand1, 16) << ", X" << stoi(rs2, nullptr, 2) << " = "
+        cout << "DECODE: Read source registers: X" << stoi(rs1, nullptr, 2) << " -> "
+             << nint(operand1, 16) << ", X" << stoi(rs2, nullptr, 2) << " -> "
              << nint(operand2, 16) << endl;
     }
     else if (op_type == "I")
@@ -433,11 +433,11 @@ void decode()
         operand2 = imm;
         write_back_signal = true;
 
-        cout << "DECODE: Operation is " << operation << ", first operand is X"
-             << stoi(rs1, nullptr, 2) << ", immediate is " << nint(operand2, 2, operand2.length())
-             << ", destination register is X" << stoi(rd, nullptr, 2) << endl;
+        cout << "DECODE: Identified " << operation << "operation | Source: X"
+             << stoi(rs1, nullptr, 2) << "| immediate is " << nint(operand2, 2, operand2.length())
+             << "| Destination Register: X" << stoi(rd, nullptr, 2) << endl;
 
-        cout << "DECODE: Read registers: X" << stoi(rs1, nullptr, 2) << " = "
+        cout << "DECODE: Read source registers: X" << stoi(rs1, nullptr, 2) << " -> "
              << nint(operand1, 16) << endl;
     }
     else if (op_type == "S")
@@ -452,12 +452,12 @@ void decode()
         register_data = X[stoi(rs2, nullptr, 2)];
         write_back_signal = false;
 
-        cout << "DECODE: Operation is " << operation << ", first operand is X"
-             << stoi(rs1, nullptr, 2) << ", immediate is " << nint(operand2, 2, operand2.length())
-             << ", data to be stored is in X" << stoi(rs2, nullptr, 2) << endl;
+        cout << "DECODE: Identified " << operation << "operation | Source: X"
+             << stoi(rs1, nullptr, 2) << "| immediate is " << nint(operand2, 2, operand2.length())
+             << "| Destination Register: X" << stoi(rs2, nullptr, 2) << endl;
 
-        cout << "DECODE: Read registers: X" << stoi(rs1, nullptr, 2) << " = "
-             << nint(operand1, 16) << ", X" << stoi(rs2, nullptr, 2) << " = "
+        cout << "DECODE: Read source registers: X" << stoi(rs1, nullptr, 2) << " -> "
+             << nint(operand1, 16) << ", X" << stoi(rs2, nullptr, 2) << " -> "
              << nint(register_data, 16) << endl;
     }
     else if (op_type == "SB")
@@ -476,12 +476,13 @@ void decode()
         offset = imm;
         write_back_signal = false;
 
-        cout << "DECODE: Operation is " << operation << ", first operand is X"
-             << stoi(rs1, nullptr, 2) << ", second operand is X" << stoi(rs2, nullptr, 2)
-             << ", immediate is " << nint(offset, 2, offset.length()) << endl;
+        cout << "DECODE: Identified " << operation << " operation | Compare: X" 
+     << stoi(rs1, nullptr, 2) << " (0x" << hex << operand1 << dec << ") with X" 
+     << stoi(rs2, nullptr, 2) << " (0x" << hex << operand2 << dec << ") | Branch offset: " 
+     << nint(offset, 2, offset.length()) << endl;
 
-        cout << "DECODE: Read registers: X" << stoi(rs1, nullptr, 2) << " = "
-             << nint(operand1, 16) << ", X" << stoi(rs2, nullptr, 2) << " = "
+        cout << "DECODE: Read source registers: X" << stoi(rs1, nullptr, 2) << " -> "
+             << nint(operand1, 16) << ", X" << stoi(rs2, nullptr, 2) << " -> "
              << nint(operand2, 16) << endl;
     }
     else if (op_type == "U")
@@ -492,11 +493,9 @@ void decode()
 
         write_back_signal = true;
 
-        cout << "DECODE: Operation is " << operation << ", immediate is "
-             << nint(imm, 2, imm.length()) << ", destination register is X"
+        cout << "DECODE: Identified " << operation << "operation | immediate is "
+             << nint(imm, 2, imm.length()) << "| Destination register X"
              << stoi(rd, nullptr, 2) << endl;
-
-        cout << "DECODE: No register read" << endl;
 
         // Add 12 zeros to the right (shift left by 12)
         imm += string(12, '0');
@@ -513,11 +512,9 @@ void decode()
 
         write_back_signal = true;
 
-        cout << "DECODE: Operation is " << operation << ", immediate is "
-             << nint(imm, 2, imm.length()) << ", destination register is X"
+        cout << "DECODE: Identified " << operation << "operation | immediate is "
+             << nint(imm, 2, imm.length()) << "| Destination register X"
              << stoi(rd, nullptr, 2) << endl;
-
-        cout << "DECODE: No register read" << endl;
 
         // Append a 0 to the right (shift left by 1)
         imm += "0";
@@ -586,21 +583,6 @@ int calculateAddress(const std::string& base, const std::string& offset) {
 string performImmediateOp(const std::string& op1, const std::string& op2, 
        function<int(int, int)> operation) {
        return nhex(operation(std::stoi(op1, nullptr, 16), nint(op2, 2, op2.length())));
-}
-
-// Helper function to format output string
-string formatOutput(const std::string& result) {
-        string formatted = result;
-        if (formatted.length() > 10) {
-        formatted = formatted.substr(0, 2) + formatted.substr(formatted.length() - 8);
-    }
-
-    // Zero-pad the result
-    formatted = formatted.substr(0, 2) +
-    std::string(10 - formatted.length(), '0') +
-    formatted.substr(2);
-
-    return formatted;
 }
 
 // Log shift operations
@@ -888,7 +870,7 @@ void mem()
 {
     if (is_mem[0] == -1) // check if there is no memory operation
     {
-        cout << "MEMORY: No memory operation" << std::endl;
+        cout << "MEMORY: Memory stage bypassed (no load/store operations)" << endl;
     }
     else if (is_mem[0] == 0) // handle load operation
     {
@@ -948,8 +930,8 @@ void mem()
 
         register_data = bin_to_hex(bin_data);
 
-        cout << "MEMORY: Load(" << ((is_mem[1] == 0) ? "byte" : (is_mem[1] == 1) ? "half-word" : (is_mem[1] == 3) ? "word" : "doubleword")
-                  << ") " << nint(register_data, 16) << " from " << std::hex << memory_address << dec << endl;
+        cout << "MEMORY: Load " << ((is_mem[1] == 0) ? "byte" : (is_mem[1] == 1) ? "half-word" : (is_mem[1] == 3) ? "word" : "doubleword")
+                  << nint(register_data, 16) << " from  memory address" << hex << memory_address << dec << endl;
     }
     else // handle store operation
     {
@@ -989,8 +971,8 @@ void mem()
             }
         }
 
-        cout << "MEMORY: Store(" << ((is_mem[1] == 0) ? "byte" : (is_mem[1] == 1) ? "half-word" : (is_mem[1] == 3) ? "word" : "doubleword")
-                  << ") " << nint(register_data, 16) << " to " << std::hex << memory_address << dec << std::endl;
+        cout << "MEMORY: Store" << ((is_mem[1] == 0) ? "byte" : (is_mem[1] == 1) ? "half-word" : (is_mem[1] == 3) ? "word" : "doubleword")
+                  << nint(register_data, 16) << " to memory address" << hex << memory_address << dec << std::endl;
     }
 
     // update pc according to control signals
@@ -1016,16 +998,16 @@ void write_back()
         if (stoi(rd, nullptr, 2) != 0)
         {
             X[stoi(rd, nullptr, 2)] = register_data;
-            cout << "WRITEBACK: Write " << nint(register_data, 16) << " to X" << std::stoi(rd, nullptr, 2) << endl;
+            cout << "WRITEBACK: Register X" << stoi(rd, nullptr, 2) << " updated with value 0x" << register_data << endl;
         }
         else
         {
-            cout << "WRITEBACK: Value of X0 can not change" << endl;
+            cout << "WRITEBACK: no change: zero register is read-only" << endl;
         }
     }
     else
     {
-        cout << "WRITEBACK: No write-back operation" << endl;
+        cout << "WRITEBACK: Write-back stage bypassed (no destination register)" << endl;
     }
 }
 

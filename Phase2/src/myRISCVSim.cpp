@@ -433,6 +433,277 @@ void decode() {
     }
 }
 
+void execute() {
+    switch (alu_control_signal) {
+    // AND operation
+    case 1: {
+    register_data = performBinaryOp(operand1, operand2, [](int a, int b) { return a & b; });
+    logExecution(operation, operand1, operand2);
+    break;
+    }
+    
+    // ADD operation
+    case 2: {
+    register_data = performBinaryOp(operand1, operand2, [](int a, int b) { return a + b; });
+    logExecution(operation, operand1, operand2);
+    break;
+    }
+    
+    // OR operation
+    case 3: {
+    register_data = performBinaryOp(operand1, operand2, [](int a, int b) { return a | b; });
+    logExecution(operation, operand1, operand2);
+    break;
+    }
+    
+    // SHIFT_LEFT operation
+    case 4: {
+    register_data = performShift(operand1, operand2, [](int a, int b) { 
+    return nhex(a << b); 
+    });
+    logExecution(operation, operand1, operand2);
+    break;
+    }
+    
+    // SET_LESS_THAN operation
+    case 5: {
+    register_data = (nint(operand1, 16) < nint(operand2, 16)) ? "0x1" : "0x0";
+    logExecution(operation, operand1, operand2);
+    break;
+    }
+    
+    // SHIFT_RIGHT_ARITHMETIC operation
+    case 6: {
+    register_data = performShift(operand1, operand2, [](int a, int b) {
+    return arithmeticRightShift(a, b);
+    });
+    logExecution(operation, operand1, operand2);
+    break;
+    }
+    
+    // SHIFT_RIGHT_LOGICAL operation
+    case 7: {
+    register_data = performShift(operand1, operand2, [](int a, int b) { 
+    return nhex(a >> b); 
+    });
+    logExecution(operation, operand1, operand2);
+    break;
+    }
+    
+    // SUB operation
+    case 8: {
+    register_data = performBinaryOp(operand1, operand2, [](int a, int b) { return a - b; });
+    logExecution(operation, operand1, operand2);
+    break;
+    }
+    
+    // XOR operation
+    case 9: {
+    register_data = performBinaryOp(operand1, operand2, [](int a, int b) { return a ^ b; });
+    logExecution(operation, operand1, operand2);
+    break;
+    }
+    
+    // MUL operation
+    case 10: {
+    register_data = performBinaryOp(operand1, operand2, [](int a, int b) { return a * b; });
+    logExecution(operation, operand1, operand2);
+    break;
+    }
+    
+    // DIV operation
+    case 11: {
+    if (nint(operand2, 16) == 0) {
+    std::cout << "ERROR: Division by zero!\n" << std::endl;
+    swi_exit();
+    return;
+    }
+    register_data = performBinaryOp(operand1, operand2, [](int a, int b) { return a / b; });
+    logExecution(operation, operand1, operand2);
+    break;
+    }
+    
+    // MOD operation
+    case 12: {
+    register_data = performBinaryOp(operand1, operand2, [](int a, int b) { return a % b; });
+    logExecution(operation, operand1, operand2);
+    break;
+    }
+    
+    // AND_IMM operation
+    case 13: {
+    register_data = nhex(std::stoi(operand1, nullptr, 16) & std::stoi(operand2, 0, 2));
+    std::cout << "EXECUTE: AND " << std::stoi(operand1, nullptr, 16) 
+    << " and " << nint(operand2, 2, operand2.length()) << std::endl;
+    break;
+    }
+    
+    // ADD_IMM operation
+    case 14: {
+    register_data = performImmediateOp(operand1, operand2, [](int a, int b) { return a + b; });
+    std::cout << "EXECUTE: ADD " << std::stoi(operand1, nullptr, 16) 
+    << " and " << nint(operand2, 2, operand2.length()) << std::endl;
+    break;
+    }
+    
+    // OR_IMM operation
+    case 15: {
+    register_data = nhex(std::stoi(operand1, nullptr, 16) | std::stoi(operand2, 0, 2));
+    std::cout << "EXECUTE: OR " << std::stoi(operand1, nullptr, 16) 
+    << " and " << nint(operand2, 2, operand2.length()) << std::endl;
+    break;
+    }
+    
+    // LOAD_WORD operation
+    case 16: {
+    int address = calculateAddress(operand1, operand2);
+    setMemoryAccess(address, 0, 0); // load (0), word (0)
+    logExecutionImm("ADD", operand1, operand2);
+    break;
+    }
+    
+    // LOAD_HALF operation
+    case 17: {
+    int address = calculateAddress(operand1, operand2);
+    setMemoryAccess(address, 0, 1); // load (0), half (1)
+    logExecutionImm("ADD", operand1, operand2);
+    break;
+    }
+    
+    // LOAD_BYTE operation
+    case 18: {
+    int address = calculateAddress(operand1, operand2);
+    setMemoryAccess(address, 0, 3); // load (0), byte (3)
+    logExecutionImm("ADD", operand1, operand2);
+    break;
+    }
+    
+    // JUMP_AND_LINK operation
+    case 19: {
+    register_data = nhex(PC + 4);
+    return_address = nint(operand2, 2, operand2.length()) + nint(operand1, 16);
+    pc_select = 1;
+    logNoOperation();
+    break;
+    }
+    
+    // STORE_WORD operation
+    case 20: {
+    int address = calculateAddress(operand1, operand2);
+    setMemoryAccess(address, 1, 0); // store (1), word (0)
+    logExecutionImm("ADD", operand1, operand2);
+    break;
+    }
+    
+    // STORE_BYTE operation
+    case 21: {
+    int address = calculateAddress(operand1, operand2);
+    setMemoryAccess(address, 1, 3); // store (1), byte (3)
+    logExecutionImm("ADD", operand1, operand2);
+    break;
+    }
+    
+    // STORE_HALF operation
+    case 22: {
+    int address = calculateAddress(operand1, operand2);
+    setMemoryAccess(address, 1, 1); // store (1), half (1)
+    logExecutionImm("ADD", operand1, operand2);
+    break;
+    }
+    
+    // BRANCH_EQUAL operation
+    case 23: {
+    if (evaluateBranchCondition(operand1, operand2, [](int a, int b) { return a == b; })) {
+    pc_offset = nint(offset, 2, offset.length());
+    inc_select = 1;
+    }
+    logExecution(operation, operand1, operand2);
+    break;
+    }
+    
+    // BRANCH_NOT_EQUAL operation
+    case 24: {
+    if (evaluateBranchCondition(operand1, operand2, [](int a, int b) { return a != b; })) {
+    pc_offset = nint(offset, 2, offset.length());
+    inc_select = 1;
+    }
+    logExecution(operation, operand1, operand2);
+    break;
+    }
+    
+    // BRANCH_GE operation
+    case 25: {
+    if (evaluateBranchCondition(operand1, operand2, [](int a, int b) { return a >= b; })) {
+    pc_offset = nint(offset, 2, offset.length());
+    inc_select = 1;
+    }
+    logExecution(operation, operand1, operand2);
+    break;
+    }
+    
+    // BRANCH_LT operation
+    case 26: {
+    if (evaluateBranchCondition(operand1, operand2, [](int a, int b) { return a < b; })) {
+    pc_offset = nint(offset, 2, offset.length());
+    inc_select = 1;
+    }
+    logExecution(operation, operand1, operand2);
+    break;
+    }
+    
+    // AUIPC operation
+    case 27: {
+    register_data = nhex(PC + 4 + std::stoi(operand2, 0, 2));
+    std::cout << "EXECUTE: Shift left " << std::stoi(operand2.substr(0, 20), 0, 2) 
+    << " by 12 bits and ADD " << (PC + 4) << std::endl;
+    break;
+    }
+    
+    // LUI operation
+    case 28: {
+    register_data = nhex(std::stoi(operand2, 0, 2));
+    logShiftOperation(operand2, 12);
+    break;
+    }
+    
+    // JAL operation
+    case 29: {
+    register_data = nhex(PC + 4);
+    pc_offset = nint(offset, 2, offset.length());
+    inc_select = 1;
+    logNoOperation();
+    break;
+    }
+    
+    // LOAD_UNSIGNED_BYTE operation
+    case 30: {
+    int address = calculateAddress(operand1, operand2);
+    setMemoryAccess(address, 0, 4); // load (0), unsigned byte (4)
+    logExecutionImm("ADD", operand1, operand2);
+    break;
+    }
+    
+    // STORE_UNSIGNED_BYTE operation
+    case 31: {
+    int address = calculateAddress(operand1, operand2);
+    setMemoryAccess(address, 1, 4); // store (1), unsigned byte (4)
+    logExecutionImm("ADD", operand1, operand2);
+    break;
+    }
+    }
+    
+    // Format the register data to the proper size
+    if (register_data.length() > 10) {
+    register_data = register_data.substr(0, 2) + register_data.substr(register_data.length() - 8);
+    }
+    
+    // Zero-pad the register_data
+    register_data = register_data.substr(0, 2) +
+    std::string(10 - register_data.length(), '0') +
+    register_data.substr(2);
+    }
+    
+
 // Memory write
 void write_word(const std::string& address, const std::string& instruction) {
     int idx = std::stoi(address.substr(2), nullptr, 16);

@@ -8,6 +8,9 @@ Table of contents
 1. Directory Structure
 2. How to build
 3. How to execute
+4. Features
+5. Supported instructions 
+6. Output Format
 
 
 Directory Structure:
@@ -33,7 +36,8 @@ CS112-Project
       |- array_add.mc
       |- fact.mc
       |- bubble.mc
-      
+
+
 How to build
 ------------
 For building:
@@ -47,5 +51,54 @@ For cleaning the project:
 
 How to execute
 --------------
-./myRISCVSim test/simple_add.mc 
+Run the simulator by providing a .mc file as input:
 
+./myRISCVSim ../test/simple_add.mc
+
+The simulator will process the instructions and display execution logs.
+
+
+Features:
+--------------
+      -Implements a Functional Simulator for a subset of 32-bit RISC-V ISA instructions.
+
+      -Simulates the five-stage execution pipeline: Fetch, Decode, Execute, Memory, Writeback.
+   
+      -Prints detailed logs at each stage, including instruction execution and register updates.
+
+      -Handles memory read/write operations and generates output memory/register files.
+
+      -Supports an exit instruction (0x00000000) to terminate execution and save memory state.
+
+
+Supported Instructions:
+-------------------------
+- R-format: add, and, or, sll, slt, sra, srl, sub, xor, mul, div, rem
+
+- I-format: addi, andi, ori, lb, ld, lh, lw, jalr
+
+- S-format: sb, sw, sd, sh
+
+- SB-format: beq, bne, bge, blt
+
+- U-format: auipc, lui
+
+- UJ-format: jal
+
+
+Output Format:
+-------------------------
+During execution, the simulator prints detailed logs. For example:
+
+FETCH: Retrieved instruction 0x00A00513 at memory location 0x00000000
+DECODE: Identified addi operation | Source: X0 | Immediate: 10 | Destination Register: X10
+EXECUTE: ADD 0 and 10
+MEMORY: Memory stage bypassed (no load/store operations)
+WRITEBACK: Register X10 updated with value 0x0000000a
+Clock Cycle: 1
+
+Additionally, output files:
+
+       -registerFile.mc → Stores register values after execution.
+
+       -memory.mc → Stores memory contents after execution.

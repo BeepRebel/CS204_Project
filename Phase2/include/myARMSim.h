@@ -1,18 +1,6 @@
-/* 
-
-The project is developed as part of Computer Architecture class
-Project Name: Functional Simulator for subset of RISCV Processor
-
-Developer's Name:
-Developer's Email id:
-Date: 
-
-*/
-
-
-/* myRISCVSim.h
-   Purpose of this file: header file for myRISCVSim
-*/
+/* myRISCVSim.h  
+   Header file for myRISCVSim  
+*/ 
 #include<bits/stdc++.h>
 using namespace std;
 
@@ -23,18 +11,18 @@ void write_data_memory();
 void swi_exit();
 
 
-//reads from the instruction memory and updates the instruction register
+// Fetches an instruction from memory and updates the instruction register
 void fetch();
-//reads the instruction register, reads operand1, operand2 fromo register file, decides the operation to be performed in execute stage
+// Decodes the instruction, retrieves operands from registers, and determines the execution operation  
 void decode();
-//executes the ALU operation based on ALUop
+// Executes the ALU operation as per the decoded instruction  
 void execute();
-//perform the memory operation
+// Handles memory read/write operations  
 void mem();
-//writes the results back to register file
+// Writes the final computed result back to the register file  
 void write_back();
 
 
-//int read_word(char *mem, unsigned int address);
+// Writes an instruction to memory at a specified address  
 void write_word(const std::string& address, const std::string& instruction);
 

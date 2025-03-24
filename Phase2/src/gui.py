@@ -76,19 +76,51 @@ class RISCVSimulatorGUI:
         
         self.root.config(menu=menubar)
     
+    def create_memory_tab(self):
+        memory_frame = tk.Frame(left_panel)
+        left_panel.add(memory_frame, text="Memory")
+
+        search_bar = tk.Entry(memory_frame)
+        search_bar.pack(fill=tk.X, padx=5, pady=5)
+
+        self.memory_text = scrolledtext.ScrolledText(memory_frame, wrap=tk.WORD, font=("Courier", 10))
+        self.memory_text.pack(fill=tk.BOTH, expand=True)
+
+        search_bar.bind("<Return>", self.search_memory)
+
+    def search_memory(self):
+        query = self.search_bar.get()
+        content = self.memory_text.get(1.0, tk.END)
+    
+    # Highlight matching lines
+        self.memory_text.tag_remove("highlight", "1.0", tk.END)
+        for line_num, line in enumerate(content.splitlines(), start=1):
+            if query in line:
+                start_idx = f"{line_num}.0"
+                end_idx = f"{line_num}.{len(line)}"
+                self.memory_text.tag_add("highlight", start_idx, end_idx)
+                self.memory_text.tag_config("highlight", background="yellow")
+
+    
     def create_toolbar(self):
         toolbar_frame = tk.Frame(self.root, bg="#e0e0e0")
         toolbar_frame.pack(fill=tk.X, padx=5, pady=2)
-        
-        # Create buttons
-        reset_btn = ttk.Button(toolbar_frame, text="Reset", command=self.reset_simulation)
-        reset_btn.pack(side=tk.LEFT, padx=2)
-        
-        load_btn = ttk.Button(toolbar_frame, text="Load Program", command=self.load_program)
-        load_btn.pack(side=tk.LEFT, padx=2)
-        
-        run_btn = ttk.Button(toolbar_frame, text="Run", command=self.run_simulation)
-        run_btn.pack(side=tk.LEFT, padx=2)        
+
+        style = ttk.Style()
+        style.configure("TButton", font=("Arial", 12), padding=5)
+
+        reset_btn = ttk.Button(toolbar_frame, text="🔄 Reset", command=self.reset_simulation)
+        reset_btn.pack(side=tk.LEFT, padx=5)
+        reset_btn.bind("<Enter>", lambda e: reset_btn.configure(style="Hover.TButton"))
+        reset_btn.bind("<Leave>", lambda e: reset_btn.configure(style="TButton"))
+
+        load_btn = ttk.Button(toolbar_frame, text="📂 Load Program", command=self.load_program)
+        load_btn.pack(side=tk.LEFT, padx=5)
+    
+        run_btn = ttk.Button(toolbar_frame, text="▶️ Run", command=self.run_simulation)
+        run_btn.pack(side=tk.LEFT, padx=5)
+
+       
         
     def create_main_area(self):
         # Main container
@@ -136,8 +168,15 @@ class RISCVSimulatorGUI:
         self.output_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
     def create_status_bar(self):
-        self.status_bar = tk.Label(self.root, text="Ready", bd=1, relief=tk.SUNKEN, anchor=tk.W)
+        self.status_bar = tk.Label(self.root, text="Ready", bd=1, relief=tk.SUNKEN, anchor=tk.W, bg="#f8f9fa", font=("Arial", 10))
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
+    def update_status(self, message):
+        self.status_bar.config(text=message)
+        
+    
+
+
     
     def configure_executable(self):
         executable_path = filedialog.askopenfilename(
@@ -362,8 +401,8 @@ class RISCVSimulatorGUI:
     def refresh_memory(self):
         # Read memory.mc file
         try:
-            if os.path.exists("memory.mc"):
-                with open("memory.mc", "r") as f:
+            if os.path.exists("data_out.mc"):
+                with open("data_out.mc", "r") as f:
                     memory_content = f.read()
                 
                 self.memory_text.delete(1.0, tk.END)
@@ -382,8 +421,8 @@ class RISCVSimulatorGUI:
     def refresh_registers(self):
         # Read registerFile.mc file
         try:
-            if os.path.exists("registerFile.mc"):
-                with open("registerFile.mc", "r") as f:
+            if os.path.exists("reg_out.mc"):
+                with open("reg_out.mc", "r") as f:
                     register_content = f.read()
                 
                 self.registers_text.delete(1.0, tk.END)

@@ -14,7 +14,7 @@ int main() {
     reset_proc();
     
     // Load program instructions into memory  
-    load_program_memory("../test/simple_add.mc");
+    load_program_memory("../test/bubblesort_iterative.mc");
     
     // Run the simulator
     run_RISCVsim();

@@ -401,8 +401,8 @@ class RISCVSimulatorGUI:
     def refresh_memory(self):
         # Read memory.mc file
         try:
-            if os.path.exists("data_out.mc"):
-                with open("data_out.mc", "r") as f:
+            if os.path.exists("memory.mc"):
+                with open("memory.mc", "r") as f:
                     memory_content = f.read()
                 
                 self.memory_text.delete(1.0, tk.END)
@@ -421,8 +421,8 @@ class RISCVSimulatorGUI:
     def refresh_registers(self):
         # Read registerFile.mc file
         try:
-            if os.path.exists("reg_out.mc"):
-                with open("reg_out.mc", "r") as f:
+            if os.path.exists("registerFile.mc"):
+                with open("registerFile.mc", "r") as f:
                     register_content = f.read()
                 
                 self.registers_text.delete(1.0, tk.END)

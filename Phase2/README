@@ -17,9 +17,6 @@ Directory Structure:
 --------------------
 CS112-Project
   |
-  |- bin
-      |
-      |- myRISCVSim
   |- doc
       |
       |- design-doc.docx
@@ -27,15 +24,18 @@ CS112-Project
       |
       |- myRISCVSim.h
   |- src
+      |- gui.py
       |- main.c
       |- Makefile
       |- myRISCVSim.h
   |- test
+      |- bubblesort_iterative.mc
+      |- bubblesort_recursive.mc
+      |- factorial_iterative.mc
+      |- factorial_recursive.mc
+      |- fibonacci_iterative.mc
+      |- fibonacci_recursive.mc
       |- simple_add.mc
-      |- fib.mc
-      |- array_add.mc
-      |- fact.mc
-      |- bubble.mc
 
 
 How to build
@@ -61,13 +61,9 @@ The simulator will process the instructions and display execution logs.
 Features:
 --------------
       -Implements a Functional Simulator for a subset of 32-bit RISC-V ISA instructions.
-
       -Simulates the five-stage execution pipeline: Fetch, Decode, Execute, Memory, Writeback.
-   
       -Prints detailed logs at each stage, including instruction execution and register updates.
-
       -Handles memory read/write operations and generates output memory/register files.
-
       -Supports an exit instruction (0x00000000) to terminate execution and save memory state.
 
 
@@ -100,5 +96,42 @@ Clock Cycle: 1
 Additionally, output files:
 
        -registerFile.mc → Stores register values after execution.
-
        -memory.mc → Stores memory contents after execution.
+
+GUI Integration:
+-------------------------
+The Graphical User Interface (GUI) is implemented in Python using Tkinter. It provides an interactive way to:
+
+       -Load .mc program files easily.
+       -Run the RISC-V simulator and view real-time execution logs.
+       -Monitor register and memory values dynamically.
+       -Reset and reload programs for repeated execution.
+       -Save execution outputs for further analysis.
+
+The GUI automatically detects the simulator executable and integrates seamlessly with it.
+
+How to Use the GUI:
+-------------------------
+1)Run the GUI
+       python gui/gui.py
+
+2)Load a Program
+       -Click on Load Program and select a .mc file.
+       -The selected program is displayed in the GUI.
+
+3)Run the Simulator
+       -Click on Run to execute the program.
+       -The execution logs will be displayed in the Output Tab.
+
+4)View Register and Memory State
+       -The Registers Tab displays updated register values.
+       -The Memory Tab allows searching for memory locations and viewing their contents.
+
+5)Save Output
+       -Click on Save Output to export execution logs.
+
+6)Reset Simulation
+       -lick Reset to clear all states and prepare for a new program.
+
+By integrating the GUI, the simulator becomes more user-friendly and interactive, making it easier to visualize the execution of RISC-V programs.
+
